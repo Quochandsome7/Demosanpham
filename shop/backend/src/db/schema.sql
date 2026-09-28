@@ -1,0 +1,74 @@
+CREATE TABLE IF NOT EXISTS categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  icon TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  original_price INTEGER,
+  image_url TEXT,
+  description TEXT,
+  category_id INTEGER REFERENCES categories(id),
+  rating REAL DEFAULT 0,
+  reviews INTEGER DEFAULT 0,
+  badge TEXT,
+  chip TEXT,
+  specs TEXT,
+  stock INTEGER DEFAULT 100,
+  is_active BOOLEAN DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE,
+  phone TEXT,
+  address TEXT,
+  password_hash TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER REFERENCES customers(id),
+  status TEXT DEFAULT 'pending',
+  total INTEGER NOT NULL,
+  payment_method TEXT DEFAULT 'cod',
+  bank_or_wallet TEXT,
+  shipping_address TEXT,
+  phone TEXT,
+  note TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id),
+  quantity INTEGER NOT NULL,
+  price INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cart_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  product_id INTEGER REFERENCES products(id),
+  quantity INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(session_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
