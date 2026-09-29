@@ -16,7 +16,6 @@ export const corsMiddleware = (frontendUrl: string) =>
       return frontendUrl || "*";
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "Cookie", "x-session-id"],
-    exposeHeaders: ["x-session-id"],
+    allowHeaders: ["Content-Type", "Authorization", "Cookie"],
     credentials: true,
   });
