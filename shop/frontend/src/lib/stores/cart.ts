@@ -22,8 +22,25 @@ interface CartState {
   error: string | null;
 }
 
+function getCachedItems(): CartItem[] {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('cart_items_cache');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedItems(items: CartItem[]) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem('cart_items_cache', JSON.stringify(items));
+  } catch {}
+}
+
 const initialState: CartState = {
-  items: [],
+  items: getCachedItems(),
   loading: false,
   error: null,
 };
@@ -62,6 +79,7 @@ function createCartStore() {
         const res = await api.getCart();
         const rawItems = res.data || [];
         const items = rawItems.map(normalizeItem);
+        saveCachedItems(items);
         update((s) => ({ ...s, items, loading: false }));
       } catch (err: any) {
         update((s) => ({ ...s, error: err.message, loading: false }));
@@ -74,6 +92,7 @@ function createCartStore() {
         const res = await api.getCart();
         const rawItems = res.data || [];
         const items = rawItems.map(normalizeItem);
+        saveCachedItems(items);
         update((s) => ({ ...s, items, loading: false }));
       } catch (err: any) {
         update((s) => ({ ...s, error: err.message, loading: false }));
@@ -86,6 +105,7 @@ function createCartStore() {
         const res = await api.getCart();
         const rawItems = res.data || [];
         const items = rawItems.map(normalizeItem);
+        saveCachedItems(items);
         update((s) => ({ ...s, items, loading: false }));
       } catch (err: any) {
         update((s) => ({ ...s, error: err.message, loading: false }));
@@ -98,12 +118,16 @@ function createCartStore() {
         const res = await api.getCart();
         const rawItems = res.data || [];
         const items = rawItems.map(normalizeItem);
+        saveCachedItems(items);
         update((s) => ({ ...s, items, loading: false }));
       } catch (err: any) {
         update((s) => ({ ...s, error: err.message, loading: false }));
       }
     },
-    clear: () => set(initialState),
+    clear: () => {
+      saveCachedItems([]);
+      set({ items: [], loading: false, error: null });
+    },
   };
 }
 

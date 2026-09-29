@@ -19,6 +19,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       : null;
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  // Session ID for cart (persists across cross-domain requests)
+  if (typeof localStorage !== "undefined") {
+    let cartSession = localStorage.getItem("cart_session_id");
+    if (!cartSession) {
+      cartSession = "sess_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem("cart_session_id", cartSession);
+    }
+    headers["x-session-id"] = cartSession;
+  }
+
   // Add content-type for JSON bodies
   if (options?.body && typeof options.body === "string") {
     headers["Content-Type"] = "application/json";

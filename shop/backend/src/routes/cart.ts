@@ -7,17 +7,18 @@ const cart = new Hono<{ Bindings: Env }>();
 
 // Middleware to ensure session_id
 const ensureSession = (c: any, next: any) => {
-  let sessionId = getCookie(c, 'session_id');
+  let sessionId = c.req.header('x-session-id') || getCookie(c, 'session_id');
   if (!sessionId) {
     sessionId = generateSessionId();
-    setCookie(c, 'session_id', sessionId, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    });
   }
+  setCookie(c, 'session_id', sessionId, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'None',
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  });
+  c.header('x-session-id', sessionId);
   c.set('session_id', sessionId);
   return next();
 };
