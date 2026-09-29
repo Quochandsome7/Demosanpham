@@ -1,7 +1,10 @@
-const isBrowser = typeof window !== 'undefined';
-const API_BASE = (isBrowser && (window.location.hostname.includes('pages.dev') || window.location.hostname !== 'localhost'))
-  ? 'https://demosanpham.dtc235200623.workers.dev/api/v1'
-  : '/api/v1';
+const isBrowser = typeof window !== "undefined";
+const API_BASE =
+  isBrowser &&
+  (window.location.hostname.includes("pages.dev") ||
+    window.location.hostname !== "localhost")
+    ? "https://demosanpham.dtc235200623.workers.dev/api/v1"
+    : "/api/v1";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;

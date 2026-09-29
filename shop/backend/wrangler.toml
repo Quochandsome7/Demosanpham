@@ -9,4 +9,4 @@ database_id = "a6093079-830b-41e7-99dc-00f3d3dc5054"
 
 [vars]
 JWT_SECRET = "cellphonex-secret-key-2026"
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = "https://demosanpham.pages.dev"

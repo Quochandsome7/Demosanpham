@@ -2,7 +2,19 @@ import { cors } from "hono/cors";
 
 export const corsMiddleware = (frontendUrl: string) =>
   cors({
-    origin: frontendUrl,
+    origin: (origin) => {
+      if (!origin) return "*";
+      if (
+        origin.includes("localhost") ||
+        origin.includes("127.0.0.1") ||
+        origin.includes("pages.dev") ||
+        origin.includes("workers.dev") ||
+        origin === frontendUrl
+      ) {
+        return origin;
+      }
+      return frontendUrl || "*";
+    },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "Cookie"],
     credentials: true,
