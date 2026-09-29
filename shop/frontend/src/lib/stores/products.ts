@@ -1,5 +1,5 @@
-import { writable, derived } from 'svelte/store';
-import { api } from '../api';
+import { writable, derived } from "svelte/store";
+import { api } from "../api";
 
 export interface Category {
   id: number;
@@ -16,11 +16,14 @@ export interface Product {
   description: string;
   price: number;
   original_price?: number;
-  stock_quantity: number;
+  stock?: number;
+  stock_quantity?: number;
   image_url: string;
   badge?: string;
+  chip?: string;
   specs?: any;
-  status: string;
+  status?: string;
+  is_active?: boolean;
 }
 
 interface ProductsState {
@@ -28,6 +31,7 @@ interface ProductsState {
   categories: Category[];
   loading: boolean;
   selectedCategory: number | null;
+  searchQuery: string;
   error: string | null;
 }
 
@@ -36,7 +40,8 @@ const initialState: ProductsState = {
   categories: [],
   loading: false,
   selectedCategory: null,
-  error: null
+  searchQuery: "",
+  error: null,
 };
 
 function createProductsStore() {
@@ -45,33 +50,64 @@ function createProductsStore() {
   return {
     subscribe,
     loadProducts: async (params?: Record<string, string>) => {
-      update(s => ({ ...s, loading: true, error: null }));
+      update((s) => ({ ...s, loading: true, error: null }));
       try {
         const res = await api.getProducts(params);
-        update(s => ({ ...s, products: res.data || [], loading: false }));
+        update((s) => ({ ...s, products: res.data || [], loading: false }));
       } catch (err: any) {
-        update(s => ({ ...s, error: err.message, loading: false }));
+        update((s) => ({ ...s, error: err.message, loading: false }));
       }
     },
     loadCategories: async () => {
       try {
         const res = await api.getCategories();
-        update(s => ({ ...s, categories: res.data || [] }));
+        update((s) => ({ ...s, categories: res.data || [] }));
       } catch (err: any) {
-        console.error('Failed to load categories', err);
+        console.error("Failed to load categories", err);
       }
     },
     setCategory: (categoryId: number | null) => {
-      update(s => ({ ...s, selectedCategory: categoryId }));
-    }
+      update((s) => ({ ...s, selectedCategory: categoryId }));
+    },
+    setSearchQuery: (query: string) => {
+      update((s) => ({ ...s, searchQuery: query }));
+    },
+    clearSearch: () => {
+      update((s) => ({ ...s, searchQuery: "" }));
+    },
   };
 }
 
 export const productsStore = createProductsStore();
 
 export const filteredProducts = derived(productsStore, ($store) => {
-  if ($store.selectedCategory === null) {
-    return $store.products;
+  let list = $store.products;
+
+  // Filter by category
+  if ($store.selectedCategory !== null) {
+    list = list.filter((p) => p.category_id === $store.selectedCategory);
   }
-  return $store.products.filter(p => p.category_id === $store.selectedCategory);
+
+  // Filter by search query
+  if ($store.searchQuery && $store.searchQuery.trim() !== "") {
+    const q = $store.searchQuery.toLowerCase().trim();
+    list = list.filter((p) => {
+      const matchName = p.name ? p.name.toLowerCase().includes(q) : false;
+      const matchChip = p.chip ? p.chip.toLowerCase().includes(q) : false;
+      const matchBadge = p.badge ? p.badge.toLowerCase().includes(q) : false;
+      const matchDesc = p.description
+        ? p.description.toLowerCase().includes(q)
+        : false;
+      const matchSpecs =
+        p.specs && Array.isArray(p.specs)
+          ? p.specs.some(
+              (s: string) =>
+                typeof s === "string" && s.toLowerCase().includes(q),
+            )
+          : false;
+      return matchName || matchChip || matchBadge || matchDesc || matchSpecs;
+    });
+  }
+
+  return list;
 });

@@ -1,1 +1,0 @@
-import{x as c}from"./CM0-EeiH.js";const m=()=>{const{subscribe:o,update:t}=c([]),s=(a,e="info",r=3e3)=>{const i=Math.random().toString(36).substring(2);t(d=>[...d,{id:i,type:e,message:a}]),setTimeout(()=>n(i),r)},n=a=>{t(e=>e.filter(r=>r.id!==a))};return{subscribe:o,add:s,remove:n}},u=m(),f=(o,t="info",s=3e3)=>{u.add(o,t,s)};export{f as a,u as t};
