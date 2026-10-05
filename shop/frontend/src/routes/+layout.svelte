@@ -11,6 +11,7 @@
   import { cart } from '$lib/stores/cart';
   import { auth } from '$lib/stores/auth';
   import { customerAuth } from '$lib/stores/customerAuth';
+  import { productsStore } from '$lib/stores/products';
   
   let { children } = $props();
   
@@ -21,6 +22,8 @@
     cart.loadCart();
     auth.checkAuth();
     customerAuth.checkAuth();
+    productsStore.loadProducts();
+    productsStore.loadCategories();
   });
 </script>
 

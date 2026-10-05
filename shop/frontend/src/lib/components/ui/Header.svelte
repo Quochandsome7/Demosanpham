@@ -3,7 +3,7 @@
   import { cartCount } from '../../stores/cart';
   import { customerAuth } from '../../stores/customerAuth';
   import { authModal } from '../../stores/authModal';
-  import { productsStore } from '../../stores/products';
+  import { productsStore, searchQuery } from '../../stores/products';
   import { formatPrice } from '../../utils';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -13,7 +13,6 @@
   let isScrolled = $state(false);
   let mobileMenuOpen = $state(false);
   let searchFocused = $state(false);
-  let searchInput = $state('');
   
   $effect(() => {
     const handleScroll = () => {
@@ -23,28 +22,37 @@
     return () => window.removeEventListener('scroll', handleScroll);
   });
 
-  // Sync search input if store changes
-  $effect(() => {
-    if ($productsStore.searchQuery !== searchInput) {
-      searchInput = $productsStore.searchQuery;
-    }
-  });
+  function removeVietnameseTones(str: string): string {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  }
+
+  function matchText(text: string | null | undefined, q: string): boolean {
+    if (!text) return false;
+    const t = text.toLowerCase();
+    const query = q.toLowerCase();
+    return t.includes(query) || removeVietnameseTones(t).includes(removeVietnameseTones(query));
+  }
 
   // Quick live suggestions
   let quickResults = $derived.by(() => {
-    const q = searchInput.trim().toLowerCase();
+    const q = $searchQuery.trim();
     if (!q) return [];
     return $productsStore.products.filter(p => 
-      p.name.toLowerCase().includes(q) ||
-      (p.chip && p.chip.toLowerCase().includes(q))
+      matchText(p.name, q) ||
+      matchText(p.chip, q) ||
+      matchText(p.badge, q)
     ).slice(0, 5);
   });
 
   function handleSearchSubmit(e?: Event) {
     if (e) e.preventDefault();
-    productsStore.setSearchQuery(searchInput);
     searchFocused = false;
     mobileMenuOpen = false;
+    productsStore.setCategory(null);
     goto('/#products');
     setTimeout(() => {
       const el = document.getElementById('products');
@@ -55,14 +63,12 @@
   function handleSelectProduct(id: number) {
     searchFocused = false;
     mobileMenuOpen = false;
-    searchInput = '';
-    productsStore.clearSearch();
+    searchQuery.set('');
     goto(`/product/${id}`);
   }
 
   function handleClear() {
-    searchInput = '';
-    productsStore.clearSearch();
+    searchQuery.set('');
   }
   
   const navLinks = [
@@ -113,17 +119,16 @@
           <input 
             type="text"
             placeholder="Tìm kiếm máy, chip, phụ kiện..."
-            bind:value={searchInput}
+            bind:value={$searchQuery}
             onfocus={() => searchFocused = true}
             onblur={() => setTimeout(() => searchFocused = false, 250)}
-            oninput={() => productsStore.setSearchQuery(searchInput)}
             class="w-full pl-9 pr-8 py-2 bg-dark-900/90 border border-white/10 hover:border-white/20 focus:border-cyber-500 rounded-xl text-xs text-white placeholder-dark-400 focus:outline-none focus:ring-1 focus:ring-cyber-500/50 transition-all shadow-inner"
           />
-          {#if searchInput}
+          {#if $searchQuery}
             <button 
               type="button" 
               onclick={handleClear}
-              class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-dark-400 hover:text-white"
+              class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-dark-400 hover:text-white cursor-pointer"
               title="Xóa tìm kiếm"
             >
               <div class="w-3.5 h-3.5">{@html icons.close}</div>
@@ -132,7 +137,7 @@
         </form>
 
         <!-- Live Quick Dropdown -->
-        {#if searchFocused && searchInput.trim()}
+        {#if searchFocused && $searchQuery.trim()}
           <div class="absolute top-full left-0 right-0 mt-2 bg-dark-950/95 border border-white/15 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-50 animate-fade-in">
             {#if quickResults.length > 0}
               <div class="p-2 space-y-1 max-h-80 overflow-y-auto">
@@ -142,9 +147,9 @@
                 </div>
                 {#each quickResults as p}
                   <button 
-                    type="button"
-                    onmousedown={() => handleSelectProduct(p.id)}
-                    class="w-full p-2 rounded-xl hover:bg-dark-900/90 flex items-center gap-3 transition-colors text-left group"
+                    type="button" 
+                    onmousedown={(e) => { e.preventDefault(); handleSelectProduct(p.id); }}
+                    class="w-full p-2 rounded-xl hover:bg-dark-900/90 flex items-center gap-3 transition-colors text-left group cursor-pointer"
                   >
                     <img 
                       src={p.image_url || '/placeholder.png'} 
@@ -160,15 +165,15 @@
               </div>
               <button 
                 type="button"
-                onmousedown={handleSearchSubmit}
-                class="w-full py-2.5 px-3 bg-dark-900/90 hover:bg-cyber-500/20 text-cyber-400 hover:text-white text-xs font-semibold text-center border-t border-white/10 transition-colors flex items-center justify-center gap-1.5"
+                onmousedown={(e) => { e.preventDefault(); handleSearchSubmit(); }}
+                class="w-full py-2.5 px-3 bg-dark-900/90 hover:bg-cyber-500/20 text-cyber-400 hover:text-white text-xs font-semibold text-center border-t border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <span>Xem tất cả sản phẩm cho "{searchInput}"</span>
+                <span>Xem tất cả sản phẩm cho "{$searchQuery}"</span>
                 <span>→</span>
               </button>
             {:else}
               <div class="p-4 text-center text-xs text-dark-400">
-                Không tìm thấy sản phẩm phù hợp với "{searchInput}"
+                Không tìm thấy sản phẩm phù hợp với "{$searchQuery}"
               </div>
             {/if}
           </div>
@@ -251,12 +256,11 @@
         <input 
           type="text"
           placeholder="Tìm sản phẩm, chip, phụ kiện..."
-          bind:value={searchInput}
-          oninput={() => productsStore.setSearchQuery(searchInput)}
+          bind:value={$searchQuery}
           class="w-full pl-10 pr-9 py-2.5 bg-dark-900 border border-white/10 rounded-xl text-xs text-white placeholder-dark-400 focus:outline-none focus:border-cyber-500"
         />
-        {#if searchInput}
-          <button type="button" onclick={handleClear} class="absolute inset-y-0 right-0 pr-3 flex items-center text-dark-400">
+        {#if $searchQuery}
+          <button type="button" onclick={handleClear} class="absolute inset-y-0 right-0 pr-3 flex items-center text-dark-400 cursor-pointer">
             <div class="w-4 h-4">{@html icons.close}</div>
           </button>
         {/if}

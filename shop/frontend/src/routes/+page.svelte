@@ -1,7 +1,7 @@
 <script lang="ts">
   import HeroSection from '$lib/components/ui/HeroSection.svelte';
   import ProductCard from '$lib/components/ui/ProductCard.svelte';
-  import { productsStore, filteredProducts } from '$lib/stores/products';
+  import { productsStore, filteredProducts, searchQuery } from '$lib/stores/products';
   import { icons } from '$lib/icons';
   import { onMount } from 'svelte';
   
@@ -30,14 +30,14 @@
       <input 
         type="text"
         placeholder="Tìm kiếm máy, chip, phụ kiện..."
-        bind:value={$productsStore.searchQuery}
+        bind:value={$searchQuery}
         class="w-full pl-10 pr-9 py-2 bg-dark-900/90 border border-white/10 hover:border-white/20 focus:border-cyber-500 rounded-xl text-sm text-white placeholder-dark-400 focus:outline-none focus:ring-1 focus:ring-cyber-500/50 transition-all shadow-inner"
       />
-      {#if $productsStore.searchQuery}
+      {#if $searchQuery}
         <button 
           type="button"
-          onclick={() => productsStore.clearSearch()}
-          class="absolute inset-y-0 right-0 pr-3 flex items-center text-dark-400 hover:text-white transition-colors"
+          onclick={() => searchQuery.set('')}
+          class="absolute inset-y-0 right-0 pr-3 flex items-center text-dark-400 hover:text-white transition-colors cursor-pointer"
           title="Xóa tìm kiếm"
         >
           <div class="w-4 h-4">{@html icons.close}</div>
@@ -47,14 +47,14 @@
   </div>
 
   <!-- Search Result Banner -->
-  {#if $productsStore.searchQuery}
+  {#if $searchQuery}
     <div class="flex items-center justify-between bg-cyber-950/40 border border-cyber-500/30 rounded-xl px-4 py-2.5 mb-6 text-sm">
       <div class="flex items-center gap-2 text-cyber-300">
         <div class="w-4 h-4">{@html icons.search}</div>
-        <span>Kết quả tìm kiếm cho: <strong class="text-white">"{$productsStore.searchQuery}"</strong> (Tìm thấy <strong class="text-white">{$filteredProducts.length}</strong> sản phẩm)</span>
+        <span>Kết quả tìm kiếm cho: <strong class="text-white">"{$searchQuery}"</strong> (Tìm thấy <strong class="text-white">{$filteredProducts.length}</strong> sản phẩm)</span>
       </div>
       <button 
-        onclick={() => productsStore.clearSearch()}
+        onclick={() => { searchQuery.set(''); productsStore.setCategory(null); }}
         class="text-xs text-cyber-400 hover:text-cyber-200 underline font-medium cursor-pointer"
       >
         Xóa tìm kiếm
@@ -89,10 +89,10 @@
     <div class="text-center py-20 bg-dark-900/30 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
       <div class="w-16 h-16 mx-auto text-dark-600 mb-4">{@html icons.search}</div>
       <p class="text-white font-medium mb-1">Không tìm thấy sản phẩm nào phù hợp</p>
-      {#if $productsStore.searchQuery}
-        <p class="text-dark-400 text-sm mb-4">Không có kết quả nào cho "{$productsStore.searchQuery}"</p>
+      {#if $searchQuery}
+        <p class="text-dark-400 text-sm mb-4">Không có kết quả nào cho "{$searchQuery}"</p>
         <button 
-          onclick={() => { productsStore.clearSearch(); productsStore.setCategory(null); }}
+          onclick={() => { searchQuery.set(''); productsStore.setCategory(null); }}
           class="px-4 py-2 bg-cyber-600 hover:bg-cyber-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-lg shadow-cyber-600/20 cursor-pointer"
         >
           Xem tất cả sản phẩm

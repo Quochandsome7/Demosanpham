@@ -31,7 +31,6 @@ interface ProductsState {
   categories: Category[];
   loading: boolean;
   selectedCategory: number | null;
-  searchQuery: string;
   error: string | null;
 }
 
@@ -40,15 +39,35 @@ const initialState: ProductsState = {
   categories: [],
   loading: false,
   selectedCategory: null,
-  searchQuery: "",
   error: null,
 };
+
+function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
+function matchText(text: string | null | undefined, q: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  const query = q.toLowerCase();
+  if (t.includes(query)) return true;
+  return removeVietnameseTones(t).includes(removeVietnameseTones(query));
+}
+
+// Standalone writable store for search query: avoids any loop or mutation issues
+export const searchQuery = writable<string>("");
 
 function createProductsStore() {
   const { subscribe, set, update } = writable<ProductsState>(initialState);
 
   return {
     subscribe,
+    set,
+    update,
     loadProducts: async (params?: Record<string, string>) => {
       update((s) => ({ ...s, loading: true, error: null }));
       try {
@@ -70,44 +89,45 @@ function createProductsStore() {
       update((s) => ({ ...s, selectedCategory: categoryId }));
     },
     setSearchQuery: (query: string) => {
-      update((s) => ({ ...s, searchQuery: query }));
+      searchQuery.set(query);
     },
     clearSearch: () => {
-      update((s) => ({ ...s, searchQuery: "" }));
+      searchQuery.set("");
     },
   };
 }
 
 export const productsStore = createProductsStore();
 
-export const filteredProducts = derived(productsStore, ($store) => {
-  let list = $store.products;
+export const filteredProducts = derived(
+  [productsStore, searchQuery],
+  ([$store, $query]) => {
+    let list = $store.products;
 
-  // Filter by category
-  if ($store.selectedCategory !== null) {
-    list = list.filter((p) => p.category_id === $store.selectedCategory);
+    // Filter by search query if present (supports Vietnamese with and without accents)
+    const q = $query.trim();
+    if (q !== "") {
+      list = list.filter((p) => {
+        const matchName = matchText(p.name, q);
+        const matchChip = matchText(p.chip, q);
+        const matchBadge = matchText(p.badge, q);
+        const matchDesc = matchText(p.description, q);
+        const matchSpecs =
+          p.specs && Array.isArray(p.specs)
+            ? p.specs.some(
+                (s: string) => typeof s === "string" && matchText(s, q),
+              )
+            : false;
+        return matchName || matchChip || matchBadge || matchDesc || matchSpecs;
+      });
+    }
+
+    // Filter by category if selected
+    if ($store.selectedCategory !== null) {
+      list = list.filter((p) => p.category_id === $store.selectedCategory);
+    }
+
+    return list;
   }
+);
 
-  // Filter by search query
-  if ($store.searchQuery && $store.searchQuery.trim() !== "") {
-    const q = $store.searchQuery.toLowerCase().trim();
-    list = list.filter((p) => {
-      const matchName = p.name ? p.name.toLowerCase().includes(q) : false;
-      const matchChip = p.chip ? p.chip.toLowerCase().includes(q) : false;
-      const matchBadge = p.badge ? p.badge.toLowerCase().includes(q) : false;
-      const matchDesc = p.description
-        ? p.description.toLowerCase().includes(q)
-        : false;
-      const matchSpecs =
-        p.specs && Array.isArray(p.specs)
-          ? p.specs.some(
-              (s: string) =>
-                typeof s === "string" && s.toLowerCase().includes(q),
-            )
-          : false;
-      return matchName || matchChip || matchBadge || matchDesc || matchSpecs;
-    });
-  }
-
-  return list;
-});
