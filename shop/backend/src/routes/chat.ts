@@ -58,7 +58,39 @@ function detectSimpleIntent(msg: string): string | null {
     return 'thanks';
   }
 
-  // 3. Danh sách sản phẩm (hỏi chung cửa hàng có những sản phẩm nào)
+  // 3. Quy trình thanh toán / phương thức thanh toán
+  if (/(thanh toán|trả tiền|chuyển khoản|cod|trả góp)/.test(m) &&
+      /(quy trình|hình thức|phương thức|như thế nào|thế nào|ra sao|là gì|cách|hướng dẫn|chấp nhận|có được|bằng cách nào)/.test(m)) {
+    return 'payment_process';
+  }
+
+  // 4. Quy trình đặt hàng / cách mua hàng
+  if (/(đặt hàng|mua hàng|mua sản phẩm|order)/.test(m) &&
+      /(quy trình|cách|hướng dẫn|làm sao|ra sao|như thế nào|thế nào|là gì|các bước|bước)/.test(m)) {
+    return 'order_process';
+  }
+
+  // 5. Chính sách đổi trả
+  if (/(đổi trả|đổi hàng|trả hàng|1 đổi 1)/.test(m)) {
+    return 'return_policy';
+  }
+
+  // 6. Chính sách bảo hành
+  if (/(bảo hành|bảo trì)/.test(m) && !/(iphone|samsung|macbook|ipad|airpods|watch)/.test(m)) {
+    return 'warranty_policy';
+  }
+
+  // 7. Chính sách vận chuyển / phí ship
+  if (/(vận chuyển|giao hàng|phí ship|tiền ship|giao nhận)/.test(m)) {
+    return 'shipping_policy';
+  }
+
+  // 8. Địa chỉ / hotline / liên hệ
+  if (/(địa chỉ|cửa hàng ở đâu|shop ở đâu|hotline|số điện thoại|sđt|liên hệ|fanpage|email)\b/.test(m)) {
+    return 'contact_info';
+  }
+
+  // 9. Danh sách sản phẩm (hỏi chung cửa hàng có những sản phẩm nào)
   if (/^(có những sản phẩm nào|danh sách sản phẩm|bán những gì|shop có những gì|cửa hàng có gì|shop có gì|bán gì|ở đây có gì|xem tất cả sản phẩm|có các sản phẩm nào|các sản phẩm đang bán)\b/.test(m) ||
       m === 'có những sản phẩm nào' ||
       m === 'danh sách sản phẩm' ||
@@ -66,25 +98,23 @@ function detectSimpleIntent(msg: string): string | null {
     return 'list';
   }
 
-  // 4. Mua hàng chung chung (không nêu rõ sản phẩm cụ thể)
+  // 10. Mua hàng chung chung (không nêu rõ sản phẩm cụ thể)
   if (/^(mua|đặt|order|mua hàng|đặt hàng|muốn mua hàng|tôi muốn mua hàng|cách mua hàng|hướng dẫn mua hàng|mua như thế nào|tôi muốn mua)\b/.test(m)) {
-    // Nếu có tên sản phẩm hoặc từ khóa thiết bị cụ thể (ví dụ "tôi muốn mua chuột không dây", "muốn mua iphone") -> để RAG xử lý
     if (/(iphone|samsung|macbook|ipad|airpods|watch|chuột|tai nghe|laptop|điện thoại|máy tính)/.test(m)) {
       return null;
     }
     return 'buy_generic';
   }
 
-  // 5. Tư vấn chung chung (không nêu rõ loại sản phẩm hoặc khoảng giá)
+  // 11. Tư vấn chung chung (không nêu rõ loại sản phẩm hoặc khoảng giá)
   if (/^(tư vấn|gợi ý|recommend|tư vấn cho tôi|tư vấn sản phẩm cho tôi|tư vấn giúp tôi|tư vấn giùm em|tư vấn cho mình|cần tư vấn|gợi ý cho tôi|nhờ tư vấn|tư vấn sản phẩm|tư vấn đi shop)\b/.test(m)) {
-    // Nếu có thiết bị hoặc ngân sách cụ thể (ví dụ "tư vấn điện thoại", "tư vấn 20 triệu") -> để RAG xử lý
     if (/(điện thoại|laptop|tai nghe|đồng hồ|máy tính|ipad|iphone|samsung|macbook|airpods|triệu|k|tr)/.test(m)) {
       return null;
     }
     return 'advise_generic';
   }
 
-  // 6. Hỏi còn hàng chung chung (không nói rõ sản phẩm nào)
+  // 12. Hỏi còn hàng chung chung (không nói rõ sản phẩm nào)
   if (/^(sản phẩm còn hàng không|còn hàng không|hàng còn không|có còn hàng không)\b/.test(m)) {
     if (/(iphone|samsung|macbook|ipad|airpods|watch|chuột|tai nghe|laptop|điện thoại)/.test(m)) {
       return null;
@@ -116,7 +146,7 @@ chat.post('/', async (c) => {
     return c.json({
       success: true,
       data: {
-        answer: 'Xin chào anh/chị! Em là trợ lý tư vấn của **Cellphone X** 🤖\n\nEm có thể hỗ trợ anh/chị:\n• Tra cứu giá bán và tình trạng còn hàng\n• Tìm kiếm sản phẩm theo thương hiệu, nhu cầu\n• Tư vấn lựa chọn thiết bị công nghệ phù hợp\n\nAnh/chị đang quan tâm đến sản phẩm gì ạ?',
+        answer: 'Xin chào anh/chị! Em là trợ lý tư vấn của **Cellphone X** 🤖\n\nEm có thể hỗ trợ anh/chị:\n• Tra cứu giá bán và tình trạng còn hàng\n• Tìm kiếm sản phẩm theo thương hiệu, nhu cầu\n• Hướng dẫn đặt hàng, thanh toán và bảo hành\n\nAnh/chị đang quan tâm đến sản phẩm nào ạ?',
         sources: [],
       },
     });
@@ -127,6 +157,66 @@ chat.post('/', async (c) => {
       success: true,
       data: {
         answer: 'Dạ không có gì ạ! Rất vui được hỗ trợ anh/chị. Nếu cần thêm thông tin gì về sản phẩm, anh/chị cứ nhắn em nhé! Chúc anh/chị một ngày tuyệt vời ạ! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'payment_process') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Dạ, quy trình và các hình thức thanh toán tại **Cellphone X** rất đơn giản và an toàn ạ:\n\n💳 **1. Các hình thức thanh toán hỗ trợ:**\n• **Thanh toán khi nhận hàng (COD):** Quý khách được đồng kiểm tra máy trước khi thanh toán cho bưu tá.\n• **Chuyển khoản ngân hàng:** Quét mã QR chuyển khoản 24/7 an toàn, tiện lợi.\n• **Trả góp 0%:** Hỗ trợ qua thẻ tín dụng và đối tác tài chính.\n\n📋 **2. Quy trình thanh toán:**\n• **Bước 1:** Bấm **"Mua ngay"** tại sản phẩm muốn mua.\n• **Bước 2:** Vào trang **Thanh toán**, điền Họ tên, Số điện thoại và Địa chỉ nhận hàng.\n• **Bước 3:** Bấm **"Đặt hàng"**, nhân viên cửa hàng sẽ gọi xác nhận và gửi hàng tận nơi cho mình ạ!\n\nAnh/chị cần hỗ trợ đặt sản phẩm nào cứ nhắn em nhé! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'order_process') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Quy trình đặt hàng tại **Cellphone X** chỉ với 4 bước cực kỳ nhanh chóng:\n\n🛒 **Bước 1:** Chọn sản phẩm yêu thích trên website Cellphone X.\n📦 **Bước 2:** Bấm **"Mua ngay"** (để thanh toán luôn) hoặc **"Thêm giỏ"** nếu muốn chọn thêm phụ kiện.\n📝 **Bước 3:** Nhập thông tin nhận hàng gồm: Họ tên, Số điện thoại và Địa chỉ giao hàng.\n✅ **Bước 4:** Bấm **"Đặt hàng"**. Hệ thống sẽ ghi nhận và nhân viên sẽ liên hệ xác nhận lộ trình giao hàng ngay cho anh/chị.\n\nĐặc biệt, Cellphone X **miễn phí giao hàng** cho tất cả đơn từ 500.000₫ ạ! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'warranty_policy') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Chính sách bảo hành tại **Cellphone X** cam kết bảo vệ quyền lợi tối đa cho khách hàng:\n\n🛡️ **Thời gian bảo hành:**\n• Bảo hành chính hãng **12 - 24 tháng** đối với thân máy (tùy dòng máy).\n• Bảo hành **6 tháng** đối với phụ kiện kèm theo.\n\n📋 **Điều kiện bảo hành:**\n• Máy còn trong hạn bảo hành và tem bảo hành còn nguyên vẹn.\n• Lỗi kỹ thuật phát sinh từ nhà sản xuất.\n• Quý khách có thể mang máy qua Cellphone X hoặc Trung tâm bảo hành ủy quyền trên toàn quốc.\n\nHotline hỗ trợ kỹ thuật: **0969610085** ạ! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'return_policy') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Chính sách đổi trả tại **Cellphone X**:\n\n🔄 **Đổi mới 30 ngày:**\n• Áp dụng chính sách **1 đổi 1 trong vòng 30 ngày** nếu máy có lỗi phần cứng từ nhà sản xuất.\n• Máy còn nguyên vẹn, không trầy xước, còn đầy đủ hộp, phụ kiện và hóa đơn.\n\n❌ **Trường hợp không hỗ trợ:** Máy bị rơi vỡ, va đập, ngấm nước hoặc can thiệp phần cứng trái phép.\n\nHotline tiếp nhận đổi trả: **0969610085** ạ! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'shipping_policy') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Chính sách vận chuyển tại **Cellphone X**:\n\n🚚 **Phí vận chuyển:**\n• **MIỄN PHÍ VẬN CHUYỂN** toàn quốc cho đơn hàng từ 500.000₫.\n• Phí ship 30.000₫ cho đơn dưới 500.000₫.\n\n⏱️ **Thời gian giao hàng:**\n• Khu vực TP. Thái Nguyên: Giao hỏa tốc trong 2 - 4 tiếng.\n• Các tỉnh thành khác: Giao tận tay từ 2 - 4 ngày làm việc.\n\nQuý khách được quyền **đồng kiểm hàng cùng shipper** trước khi thanh toán ạ! 😊',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'contact_info') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Thông tin liên hệ của **Cellphone X**:\n\n📍 **Địa chỉ:** TP. Thái Nguyên\n📞 **Hotline:** **0969610085**\n✉️ **Email:** nguyendiem1892005@gmail.com\n⏰ **Giờ làm việc:** 8:00 - 21:30 hàng ngày\n\nCellphone X rất hân hạnh được hỗ trợ anh/chị ạ! 😊',
         sources: [],
       },
     });
@@ -302,12 +392,29 @@ chat.post('/', async (c) => {
         '\n\nAnh/chị cần xem thêm thông tin chi tiết về sản phẩm nào không ạ?';
     }
 
-    if (answer.trim() === REJECT_ANSWER || answer.includes(REJECT_ANSWER)) {
-      return c.json({ success: true, data: { answer: REJECT_ANSWER, sources: [] } });
+    const lowerAns = answer.toLowerCase();
+    const isRefusal =
+      answer.trim() === REJECT_ANSWER ||
+      answer.includes(REJECT_ANSWER) ||
+      lowerAns.includes('không tìm thấy thông tin') ||
+      lowerAns.includes('không tìm thấy sản phẩm') ||
+      lowerAns.includes('không có thông tin') ||
+      lowerAns.includes('xin lỗi, tôi không') ||
+      lowerAns.includes('xin lỗi, em không');
+
+    if (isRefusal) {
+      return c.json({ success: true, data: { answer, sources: [] } });
     }
 
+    // Chỉ đính kèm thẻ sản phẩm nếu câu trả lời thực sự nhắc đến sản phẩm đó
+    const relevantSources = contextProducts.filter(p => {
+      const pName = p.name.toLowerCase();
+      const firstWord = pName.split(' ')[0]; // 'iphone', 'samsung', 'macbook', 'ipad', 'airpods', 'apple'
+      return lowerAns.includes(pName) || lowerAns.includes(firstWord);
+    });
+
     // Bước E: Build sources trả về cho frontend (chỉ chứa sản phẩm thực sự liên quan)
-    const sources: ChatSource[] = contextProducts.slice(0, 4).map(p => ({
+    const sources: ChatSource[] = relevantSources.slice(0, 4).map(p => ({
       product_id: p.id,
       name: p.name,
       price: p.price,
