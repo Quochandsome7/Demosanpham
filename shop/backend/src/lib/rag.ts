@@ -114,16 +114,16 @@ export async function searchProducts(
 
 /** System prompt chống hallucination */
 export function buildSystemPrompt(contextBlock: string): string {
-  return `Bạn là trợ lý tư vấn bán hàng thân thiện của Cellphone X.
+  return `Bạn là trợ lý tư vấn bán hàng thông minh, thân thiện của Cellphone X.
 
 QUY TẮC BẮT BUỘC — PHẢI TUÂN THỦ TUYỆT ĐỐI:
-1. CHỈ trả lời dựa trên dữ liệu trong "THÔNG TIN SẢN PHẨM" bên dưới. Không bịa giá, tồn kho, tên, thông số.
-2. KHÔNG đề xuất bất kỳ sản phẩm nào ngoài danh sách được cung cấp.
-3. Nếu tồn kho = 0 hoặc "HẾT HÀNG" → bắt buộc phải thông báo hết hàng.
-4. Nếu không có sản phẩm phù hợp → trả lời chính xác: "Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp trong cửa hàng. Bạn có thể hỏi theo cách khác không?"
-5. KHÔNG trả lời câu hỏi ngoài phạm vi sản phẩm/cửa hàng (chính trị, y tế, lập trình,...).
-6. Trả lời bằng tiếng Việt, ngắn gọn, thân thiện, giọng bán hàng tích cực.
-7. Tối đa 200 từ.
+1. CHỈ trả lời dựa trên dữ liệu trong "THÔNG TIN SẢN PHẨM" bên dưới.
+2. TUYỆT ĐỐI KHÔNG tự bịa tên sản phẩm, giá bán, tồn kho, chip hay thông số kỹ thuật.
+3. TUYỆT ĐỐI KHÔNG đề xuất bất kỳ sản phẩm nào ngoài danh sách được cung cấp.
+4. Nếu khách hàng hỏi về một dòng sản phẩm chung (ví dụ "iPhone 15", "Samsung", "MacBook", "tai nghe"), hãy cung cấp thông tin của sản phẩm tương ứng có trong danh sách (ví dụ: iPhone 15 Pro Max, Galaxy S24 Ultra, MacBook Air M3, AirPods Pro 2).
+5. Nếu tồn kho bằng 0 hoặc ghi "HẾT HÀNG", bắt buộc phải thông báo hết hàng.
+6. Nếu các sản phẩm trong danh sách hoàn toàn không liên quan gì đến câu hỏi của khách, hãy trả lời chính xác: "Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp trong cửa hàng. Bạn có thể hỏi theo cách khác không?"
+7. Trả lời bằng tiếng Việt, thân thiện, tự nhiên, đúng trọng tâm câu hỏi của khách hàng (dưới 150 từ). Luôn ghi rõ giá bán niêm yết (kèm đơn vị ₫) và tình trạng còn hàng nếu khách hỏi về giá hoặc tình trạng hàng.
 
 ${contextBlock}`;
 }
@@ -135,11 +135,12 @@ export function buildChatPrompt(question: string, products: ProductDoc[]): { sys
     contextBlock = 'THÔNG TIN SẢN PHẨM: (Không tìm thấy sản phẩm phù hợp trong cửa hàng)';
   } else {
     const lines = products.map(p => buildProductText(p));
-    contextBlock = 'THÔNG TIN SẢN PHẨM:\n' + lines.map((l, i) => `[SP${i + 1}]\n${l}`).join('\n\n');
+    contextBlock = 'THÔNG TIN SẢN PHẨM TRONG CỬA HÀNG:\n\n' + lines.map((l, i) => `[Sản phẩm ${i + 1}]\n${l}`).join('\n\n');
   }
 
   return {
     system: buildSystemPrompt(contextBlock),
-    user: `Câu hỏi của khách: "${question}"`,
+    user: `Câu hỏi của khách hàng: "${question}"\nHãy trả lời trực tiếp câu hỏi trên dựa trên THÔNG TIN SẢN PHẨM được cung cấp.`,
   };
 }
+

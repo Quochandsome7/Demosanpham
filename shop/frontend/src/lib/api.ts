@@ -1,5 +1,5 @@
-const isBrowser = typeof window !== "undefined";
-const API_BASE =
+export const isBrowser = typeof window !== "undefined";
+export const API_BASE =
   isBrowser &&
   (window.location.hostname.includes("pages.dev") ||
     window.location.hostname !== "localhost")
@@ -18,6 +18,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       ? localStorage.getItem("admin_token")
       : null;
   if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  // Add session id if exists
+  const sessionId =
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("cart_session_id")
+      : null;
+  if (sessionId && !headers["x-session-id"]) {
+    headers["x-session-id"] = sessionId;
+  }
 
   // Add content-type for JSON bodies
   if (options?.body && typeof options.body === "string") {
@@ -146,4 +155,21 @@ export const api = {
   // Upload
   uploadImage: (url: string) =>
     request<any>("/upload", { method: "POST", body: JSON.stringify({ url }) }),
+
+  // Chatbot RAG
+  chat: (message: string) =>
+    request<any>("/chat", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+
+  // Wishlist
+  getWishlist: () => request<any>("/wishlist"),
+  addToWishlist: (product_id: number) =>
+    request<any>("/wishlist", {
+      method: "POST",
+      body: JSON.stringify({ product_id }),
+    }),
+  removeFromWishlist: (productId: number) =>
+    request<any>(`/wishlist/${productId}`, { method: "DELETE" }),
 };

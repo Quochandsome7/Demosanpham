@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { formatPrice } from '$lib/utils';
+  import { api } from '$lib/api';
 
   // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -66,21 +67,7 @@
     scrollToBottom();
 
     try {
-      let sessionId = '';
-      if (typeof localStorage !== 'undefined') {
-        sessionId = localStorage.getItem('cart_session_id') || '';
-      }
-
-      const res = await fetch('/api/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-session-id': sessionId,
-        },
-        body: JSON.stringify({ message: msg }),
-      });
-
-      const data = await res.json();
+      const data = await api.chat(msg);
 
       if (data.success && data.data) {
         messages = [
@@ -97,7 +84,8 @@
           { role: 'ai', content: data.error || 'Đã có lỗi xảy ra. Vui lòng thử lại.', sources: [] },
         ];
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Chat error:', err);
       messages = [
         ...messages,
         { role: 'ai', content: 'Mất kết nối đến máy chủ. Vui lòng thử lại sau.', sources: [] },
@@ -118,8 +106,8 @@
   // ─── Câu hỏi gợi ý ──────────────────────────────────────────────────────────
   const SUGGESTIONS = [
     'Có những sản phẩm nào?',
-    'iPhone 15 còn hàng không?',
-    'Tư vấn laptop tầm 20 triệu',
+    'iPhone 15 giá bao nhiêu?',
+    'Tư vấn sản phẩm cho tôi',
   ];
 
   function useSuggestion(s: string) {

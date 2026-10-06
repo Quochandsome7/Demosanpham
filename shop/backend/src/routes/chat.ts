@@ -16,7 +16,7 @@ const chat = new Hono<{ Bindings: Env }>();
 // ─── Hằng số ────────────────────────────────────────────────────────────────
 
 /** Ngưỡng cosine similarity tối thiểu để giữ kết quả từ Vectorize */
-const SIMILARITY_THRESHOLD = 0.35;
+const SIMILARITY_THRESHOLD = 0.40;
 
 /** Mô hình LLM chính */
 const LLM_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -26,10 +26,15 @@ const REJECT_ANSWER =
   'Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp trong cửa hàng. Bạn có thể hỏi theo cách khác không?';
 
 function extractKeywords(text: string): string[] {
-  const stopWords = new Set(['có', 'không', 'những', 'nào', 'gì', 'giá', 'bao', 'nhiêu', 'tôi', 'muốn', 'mua', 'cho', 'với', 'của', 'ở', 'được', 'ạ', 'nhỉ', 'em', 'anh', 'chị', 'shop', 'cửa', 'hàng', 'còn', 'hết', 'bán', 'xin', 'hỏi', 'xem']);
+  const stopWords = new Set([
+    'có', 'không', 'những', 'nào', 'gì', 'giá', 'bao', 'nhiêu', 'tôi', 'muốn', 'mua',
+    'cho', 'với', 'của', 'ở', 'được', 'ạ', 'nhỉ', 'em', 'anh', 'chị', 'shop', 'cửa',
+    'hàng', 'còn', 'hết', 'bán', 'xin', 'hỏi', 'xem', 'sản', 'phẩm', 'tất', 'cả', 'này',
+    'mình', 'giúp', 'giùm', 'đi', 'đang', 'loại', 'các'
+  ]);
   return text
     .toLowerCase()
-    .replace(/[?,.!:;]/g, '')
+    .replace(/[?,.!:;]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 1 && !stopWords.has(w));
 }
@@ -37,13 +42,55 @@ function extractKeywords(text: string): string[] {
 // ─── Intent detection đơn giản ──────────────────────────────────────────────
 
 function detectSimpleIntent(msg: string): string | null {
-  const m = msg.toLowerCase().trim();
+  const m = msg.toLowerCase().trim().replace(/[?!.,]/g, '');
 
-  if (/^(xin chào|chào|hello|hi|hey|alo|ơi)\b/.test(m)) return 'greeting';
-  if (/^(cảm ơn|thank|cám ơn)\b/.test(m)) return 'thanks';
-  if (/(có.*sản phẩm.*nào|danh sách sản phẩm|bán.*gì|shop có gì|xem tất cả)/.test(m)) return 'list';
-  if (/^(mua|đặt|order)\s*$/.test(m)) return 'buy_generic';
-  if (/^(tư vấn|gợi ý|recommend)\s*$/.test(m)) return 'advise_generic';
+  // 1. Chào hỏi
+  if (/^(xin chào|chào|hello|hi|hey|alo|ơi shop|chào shop|chào em|chào bạn)\b/.test(m)) {
+    // Nếu kèm câu hỏi sản phẩm cụ thể (ví dụ "chào shop iphone 15 giá bao nhiêu") -> để RAG xử lý
+    if (m.split(/\s+/).length > 4 && /(iphone|samsung|macbook|ipad|airpods|watch|giá|bao nhiêu|còn hàng|chuột)/.test(m)) {
+      return null;
+    }
+    return 'greeting';
+  }
+
+  // 2. Cảm ơn
+  if (/^(cảm ơn|thank|cám ơn|ok cảm ơn|thanks)\b/.test(m)) {
+    return 'thanks';
+  }
+
+  // 3. Danh sách sản phẩm (hỏi chung cửa hàng có những sản phẩm nào)
+  if (/^(có những sản phẩm nào|danh sách sản phẩm|bán những gì|shop có những gì|cửa hàng có gì|shop có gì|bán gì|ở đây có gì|xem tất cả sản phẩm|có các sản phẩm nào|các sản phẩm đang bán)\b/.test(m) ||
+      m === 'có những sản phẩm nào' ||
+      m === 'danh sách sản phẩm' ||
+      m === 'có sản phẩm nào') {
+    return 'list';
+  }
+
+  // 4. Mua hàng chung chung (không nêu rõ sản phẩm cụ thể)
+  if (/^(mua|đặt|order|mua hàng|đặt hàng|muốn mua hàng|tôi muốn mua hàng|cách mua hàng|hướng dẫn mua hàng|mua như thế nào|tôi muốn mua)\b/.test(m)) {
+    // Nếu có tên sản phẩm hoặc từ khóa thiết bị cụ thể (ví dụ "tôi muốn mua chuột không dây", "muốn mua iphone") -> để RAG xử lý
+    if (/(iphone|samsung|macbook|ipad|airpods|watch|chuột|tai nghe|laptop|điện thoại|máy tính)/.test(m)) {
+      return null;
+    }
+    return 'buy_generic';
+  }
+
+  // 5. Tư vấn chung chung (không nêu rõ loại sản phẩm hoặc khoảng giá)
+  if (/^(tư vấn|gợi ý|recommend|tư vấn cho tôi|tư vấn sản phẩm cho tôi|tư vấn giúp tôi|tư vấn giùm em|tư vấn cho mình|cần tư vấn|gợi ý cho tôi|nhờ tư vấn|tư vấn sản phẩm|tư vấn đi shop)\b/.test(m)) {
+    // Nếu có thiết bị hoặc ngân sách cụ thể (ví dụ "tư vấn điện thoại", "tư vấn 20 triệu") -> để RAG xử lý
+    if (/(điện thoại|laptop|tai nghe|đồng hồ|máy tính|ipad|iphone|samsung|macbook|airpods|triệu|k|tr)/.test(m)) {
+      return null;
+    }
+    return 'advise_generic';
+  }
+
+  // 6. Hỏi còn hàng chung chung (không nói rõ sản phẩm nào)
+  if (/^(sản phẩm còn hàng không|còn hàng không|hàng còn không|có còn hàng không)\b/.test(m)) {
+    if (/(iphone|samsung|macbook|ipad|airpods|watch|chuột|tai nghe|laptop|điện thoại)/.test(m)) {
+      return null;
+    }
+    return 'stock_generic';
+  }
 
   return null;
 }
@@ -69,7 +116,7 @@ chat.post('/', async (c) => {
     return c.json({
       success: true,
       data: {
-        answer: 'Xin chào! Tôi là trợ lý tư vấn của Cellphone X 🤖\n\nTôi có thể giúp bạn:\n• Tìm sản phẩm theo tên, thương hiệu, danh mục\n• Kiểm tra giá và tình trạng tồn kho\n• Tư vấn sản phẩm phù hợp nhu cầu\n\nBạn cần tìm gì ạ?',
+        answer: 'Xin chào anh/chị! Em là trợ lý tư vấn của **Cellphone X** 🤖\n\nEm có thể hỗ trợ anh/chị:\n• Tra cứu giá bán và tình trạng còn hàng\n• Tìm kiếm sản phẩm theo thương hiệu, nhu cầu\n• Tư vấn lựa chọn thiết bị công nghệ phù hợp\n\nAnh/chị đang quan tâm đến sản phẩm gì ạ?',
         sources: [],
       },
     });
@@ -79,7 +126,7 @@ chat.post('/', async (c) => {
     return c.json({
       success: true,
       data: {
-        answer: 'Cảm ơn bạn đã ghé Cellphone X! 😊 Nếu cần tư vấn thêm, cứ hỏi em nhé!',
+        answer: 'Dạ không có gì ạ! Rất vui được hỗ trợ anh/chị. Nếu cần thêm thông tin gì về sản phẩm, anh/chị cứ nhắn em nhé! Chúc anh/chị một ngày tuyệt vời ạ! 😊',
         sources: [],
       },
     });
@@ -108,7 +155,7 @@ chat.post('/', async (c) => {
       for (const [cat, names] of Object.entries(grouped)) {
         listText += `\n📦 **${cat}:**\n${names.map(n => `  • ${n}`).join('\n')}`;
       }
-      listText += '\n\nBạn muốn tìm hiểu thêm về sản phẩm nào ạ?';
+      listText += '\n\nAnh/chị muốn tìm hiểu thêm về sản phẩm nào ạ?';
 
       return c.json({ success: true, data: { answer: listText, sources: [] } });
     } catch {
@@ -120,7 +167,7 @@ chat.post('/', async (c) => {
     return c.json({
       success: true,
       data: {
-        answer: 'Bạn muốn mua loại sản phẩm nào ạ? Hãy cho tôi biết thêm:\n• Tên sản phẩm hoặc thương hiệu\n• Khoảng giá mong muốn\n• Mục đích sử dụng\n\nTôi sẽ tư vấn sản phẩm phù hợp nhất! 😊',
+        answer: 'Anh/chị muốn mua loại sản phẩm nào ạ? Hãy cho em biết thêm về:\n• Tên sản phẩm hoặc thương hiệu anh/chị quan tâm\n• Nhu cầu sử dụng chính (làm việc, học tập, chụp ảnh, giải trí...)\n• Khoảng giá dự kiến\n\nEm sẽ gợi ý sản phẩm phù hợp nhất cho anh/chị ngay ạ! 😊',
         sources: [],
       },
     });
@@ -130,7 +177,17 @@ chat.post('/', async (c) => {
     return c.json({
       success: true,
       data: {
-        answer: 'Tôi rất vui được tư vấn! 😊\n\nĐể tư vấn chính xác, bạn có thể cho biết:\n• Loại sản phẩm (điện thoại, laptop, tablet...)\n• Thương hiệu ưa thích\n• Khoảng giá dự kiến\n• Mục đích sử dụng chính\n\nVí dụ: "Tư vấn điện thoại Samsung tầm 20 triệu" ạ!',
+        answer: 'Em rất vui được hỗ trợ tư vấn cho anh/chị! 😊\n\nĐể em gợi ý chính xác nhất, anh/chị có thể cho em biết thêm:\n• Loại sản phẩm đang quan tâm (Điện thoại, Laptop, Tablet, Tai nghe, Đồng hồ...)\n• Thương hiệu yêu thích (Apple, Samsung...)\n• Tầm giá mong muốn\n• Nhu cầu sử dụng hàng ngày\n\nVí dụ: "Tư vấn điện thoại tầm 25 triệu" hoặc "Tư vấn laptop pin trâu" ạ!',
+        sources: [],
+      },
+    });
+  }
+
+  if (intent === 'stock_generic') {
+    return c.json({
+      success: true,
+      data: {
+        answer: 'Hiện tại tất cả các sản phẩm đang hiển thị tại Cellphone X đều đang còn hàng sẵn trong kho ạ! 🎉\n\nAnh/chị đang quan tâm đến sản phẩm cụ thể nào (ví dụ: iPhone 15 Pro Max, Galaxy S24 Ultra, MacBook Air M3, iPad Pro M4, AirPods Pro 2, Apple Watch Ultra 2) để em kiểm tra số lượng chi tiết cho mình nhé! 😊',
         sources: [],
       },
     });
@@ -138,23 +195,30 @@ chat.post('/', async (c) => {
 
   // 3. RAG Pipeline cho câu hỏi sản phẩm cụ thể
   try {
-    // Bước A: Embed câu hỏi
+    // Bước A: Semantic search trong Vectorize
+    let rawMatches: { id: string; score: number }[] = [];
     let semanticMatches: { id: string; score: number }[] = [];
     let ragAvailable = true;
 
     try {
-      const rawMatches = await searchProducts(c.env, userMessage, 4);
-      semanticMatches = rawMatches.filter(m => m.score >= SIMILARITY_THRESHOLD);
+      rawMatches = await searchProducts(c.env, userMessage, 4);
+      rawMatches.sort((a, b) => b.score - a.score);
+      const validMatches = rawMatches.filter(m => m.score >= SIMILARITY_THRESHOLD);
+
+      if (validMatches.length > 0) {
+        const topScore = validMatches[0].score;
+        // Chỉ giữ những sản phẩm có điểm số gần với kết quả tốt nhất (chênh lệch tối đa 0.12)
+        semanticMatches = validMatches.filter(m => m.score >= Math.max(SIMILARITY_THRESHOLD, topScore - 0.12));
+      }
     } catch (e) {
       console.error('[RAG] Vectorize/embed error:', e);
       ragAvailable = false;
     }
 
-    // Bước B: Nếu không có kết quả ngữ nghĩa → tìm DB trực tiếp (fallback)
+    // Bước B: Lấy thông tin sản phẩm từ DB hoặc fallback tìm kiếm từ khóa
     let contextProducts: any[] = [];
 
     if (ragAvailable && semanticMatches.length > 0) {
-      // Lấy thông tin đầy đủ từ DB cho các product_id tìm thấy
       const idList = semanticMatches.map(m => m.id).join(',');
       const { results } = await c.env.DB.prepare(
         `SELECT p.*, c.name as category_name
@@ -162,20 +226,25 @@ chat.post('/', async (c) => {
          WHERE p.id IN (${idList}) AND p.is_active = 1`
       ).all<any>();
 
-      contextProducts = results.map(p => ({
-        ...p,
-        specs: p.specs ?? null,
-      }));
+      // Sắp xếp contextProducts đúng theo thứ tự độ tương đồng (semanticMatches)
+      const productMap = new Map(results.map(p => [String(p.id), p]));
+      contextProducts = semanticMatches
+        .map(m => productMap.get(m.id))
+        .filter((p): p is any => !!p)
+        .map(p => ({
+          ...p,
+          specs: p.specs ?? null,
+        }));
     } else {
-      // Fallback: keyword search trực tiếp DB thông minh
+      // Fallback: Tìm kiếm từ khóa thông minh trong DB
       const keywords = extractKeywords(userMessage);
-      const { results } = await c.env.DB.prepare(
-        `SELECT p.*, c.name as category_name
-         FROM products p LEFT JOIN categories c ON p.category_id = c.id
-         WHERE p.is_active = 1`
-      ).all<any>();
-
       if (keywords.length > 0) {
+        const { results } = await c.env.DB.prepare(
+          `SELECT p.*, c.name as category_name
+           FROM products p LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.is_active = 1`
+        ).all<any>();
+
         const scored = results.map(p => {
           const target = `${p.name} ${p.chip || ''} ${p.description || ''} ${p.category_name || ''} ${p.badge || ''}`.toLowerCase();
           let score = 0;
@@ -192,7 +261,7 @@ chat.post('/', async (c) => {
       }
     }
 
-    // Bước C: Nếu không có sản phẩm nào → trả câu từ chối (không gọi LLM)
+    // Bước C: Nếu không có sản phẩm nào → trả câu từ chối chuẩn (không gọi LLM, không hallucinate)
     if (contextProducts.length === 0) {
       return c.json({
         success: true,
@@ -200,7 +269,7 @@ chat.post('/', async (c) => {
       });
     }
 
-    // Bước D: Build prompt và gọi LLM
+    // Bước D: Build prompt và gọi LLM Llama 3.3 70B
     const { system, user } = buildChatPrompt(userMessage, contextProducts);
 
     let answer = '';
@@ -211,26 +280,33 @@ chat.post('/', async (c) => {
           { role: 'user', content: user },
         ],
         max_tokens: 512,
-        temperature: 0.3,
+        temperature: 0.2,
       }) as any;
 
       answer = llmRes?.response ?? llmRes?.result?.response ?? '';
     } catch (e) {
       console.error('[RAG] LLM error:', e);
-      // Fallback: liệt kê sản phẩm tìm thấy
+      // Fallback khi AI quá tải: trả về danh sách sản phẩm rõ ràng
       const fmt = (p: number) => new Intl.NumberFormat('vi-VN').format(p) + '₫';
       answer =
-        `Tôi tìm thấy ${contextProducts.length} sản phẩm liên quan:\n` +
-        contextProducts.map(p => `• **${p.name}**: ${fmt(p.price)} — ${p.stock > 0 ? `Còn ${p.stock} hàng` : '❌ Hết hàng'}`).join('\n') +
-        '\n\nBạn muốn xem thêm thông tin về sản phẩm nào không?';
+        `Em tìm thấy ${contextProducts.length} sản phẩm liên quan tại cửa hàng:\n` +
+        contextProducts.map(p => `• **${p.name}**: ${fmt(p.price)} — ${p.stock > 0 ? `Còn ${p.stock} sản phẩm` : '❌ Hết hàng'}`).join('\n') +
+        '\n\nAnh/chị cần xem thêm thông tin chi tiết về sản phẩm nào không ạ?';
     }
 
-    if (!answer.trim() || answer.includes('không tìm thấy sản phẩm')) {
-      answer = REJECT_ANSWER;
-      return c.json({ success: true, data: { answer, sources: [] } });
+    if (!answer.trim()) {
+      const fmt = (p: number) => new Intl.NumberFormat('vi-VN').format(p) + '₫';
+      answer =
+        `Em tìm thấy ${contextProducts.length} sản phẩm liên quan tại cửa hàng:\n` +
+        contextProducts.map(p => `• **${p.name}**: ${fmt(p.price)} — ${p.stock > 0 ? `Còn ${p.stock} sản phẩm` : '❌ Hết hàng'}`).join('\n') +
+        '\n\nAnh/chị cần xem thêm thông tin chi tiết về sản phẩm nào không ạ?';
     }
 
-    // Bước E: Build sources trả về cho frontend
+    if (answer.trim() === REJECT_ANSWER || answer.includes(REJECT_ANSWER)) {
+      return c.json({ success: true, data: { answer: REJECT_ANSWER, sources: [] } });
+    }
+
+    // Bước E: Build sources trả về cho frontend (chỉ chứa sản phẩm thực sự liên quan)
     const sources: ChatSource[] = contextProducts.slice(0, 4).map(p => ({
       product_id: p.id,
       name: p.name,
