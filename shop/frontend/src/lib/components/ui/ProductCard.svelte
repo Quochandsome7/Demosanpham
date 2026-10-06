@@ -124,31 +124,14 @@
       </div>
     </div>
     
-    <!-- Action Buttons Row: [♡/♥] [Thêm giỏ] [Mua ngay] -->
-    <div class="mt-auto pt-2 flex items-center gap-2">
-      <!-- Heart Button (nhỏ gọn) -->
-      <button 
-        type="button"
-        onclick={handleToggleWishlist}
-        class="w-9 h-9 shrink-0 rounded-xl bg-dark-900 border {wishlisted ? 'border-red-500/40 text-red-500 bg-red-500/10' : 'border-white/10 text-dark-300 hover:text-red-500 hover:border-red-500/30'} flex items-center justify-center transition-all cursor-pointer"
-        aria-label={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
-        title={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
-      >
-        <div class="w-4 h-4">
-          {#if wishlisted}
-            {@html icons.heartFilled}
-          {:else}
-            {@html icons.heart}
-          {/if}
-        </div>
-      </button>
-
+    <!-- Action Buttons Row: [Thêm giỏ] [Mua ngay] -->
+    <div class="mt-auto pt-2 grid grid-cols-2 gap-2">
       <!-- Add to Cart Button -->
       <button 
         type="button"
         onclick={handleAddToCart}
         disabled={(product.stock === 0 || product.stock_quantity === 0) || adding}
-        class="flex-1 bg-cyber-600/20 hover:bg-cyber-600 text-cyber-300 hover:text-white border border-cyber-500/30 hover:border-cyber-500 font-medium py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
+        class="w-full bg-cyber-600/20 hover:bg-cyber-600 text-cyber-300 hover:text-white border border-cyber-500/30 hover:border-cyber-500 font-medium py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
         title="Thêm vào giỏ hàng"
       >
         <div class="w-4 h-4 shrink-0">{@html icons.cart}</div>
@@ -160,7 +143,7 @@
         type="button"
         onclick={handleBuyNow}
         disabled={(product.stock === 0 || product.stock_quantity === 0) || adding}
-        class="flex-1 bg-gradient-to-r from-neon-orange to-cyber-500 hover:from-orange-500 hover:to-cyber-400 text-white font-semibold py-2 px-2 rounded-xl transition-all shadow-[0_0_12px_rgba(251,146,60,0.25)] hover:shadow-[0_0_16px_rgba(251,146,60,0.45)] flex items-center justify-center gap-1 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
+        class="w-full bg-gradient-to-r from-neon-orange to-cyber-500 hover:from-orange-500 hover:to-cyber-400 text-white font-semibold py-2 px-2 rounded-xl transition-all shadow-[0_0_12px_rgba(251,146,60,0.25)] hover:shadow-[0_0_16px_rgba(251,146,60,0.45)] flex items-center justify-center gap-1 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
         title="Mua ngay"
       >
         <span class="truncate">Mua ngay</span>

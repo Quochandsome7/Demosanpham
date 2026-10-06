@@ -1,4 +1,4 @@
-import type { Env } from './types';
+import type { Env } from "./types";
 
 // ─── Định nghĩa kiểu dữ liệu ────────────────────────────────────────────────
 
@@ -39,62 +39,75 @@ export interface ChatResponse {
 /** Chuyển sản phẩm thành văn bản chuẩn hóa tiếng Việt để embedding */
 export function buildProductText(p: ProductDoc): string {
   const specsRaw = p.specs;
-  let specText = '';
+  let specText = "";
   if (specsRaw) {
     try {
       const arr = JSON.parse(specsRaw);
-      specText = Array.isArray(arr) ? arr.join(', ') : specsRaw;
+      specText = Array.isArray(arr) ? arr.join(", ") : specsRaw;
     } catch {
       specText = specsRaw;
     }
   }
 
-  const priceFormatted = new Intl.NumberFormat('vi-VN').format(p.price) + '₫';
-  const origFormatted = p.original_price && p.original_price > p.price
-    ? ' (Giá gốc: ' + new Intl.NumberFormat('vi-VN').format(p.original_price) + '₫)'
-    : '';
+  const priceFormatted = new Intl.NumberFormat("vi-VN").format(p.price) + "₫";
+  const origFormatted =
+    p.original_price && p.original_price > p.price
+      ? " (Giá gốc: " +
+        new Intl.NumberFormat("vi-VN").format(p.original_price) +
+        "₫)"
+      : "";
 
   return [
     `Tên: ${p.name}`,
-    `Danh mục: ${p.category_name || 'Không rõ'}`,
+    `Danh mục: ${p.category_name || "Không rõ"}`,
     `Giá: ${priceFormatted}${origFormatted}`,
-    `Chip/CPU: ${p.chip || 'Không rõ'}`,
-    `Tồn kho: ${p.stock > 0 ? p.stock + ' sản phẩm' : 'HẾT HÀNG'}`,
-    specText ? `Thông số: ${specText}` : '',
-    p.description ? `Mô tả: ${p.description}` : '',
-    p.badge ? `Đặc điểm: ${p.badge}` : '',
-  ].filter(Boolean).join('\n');
+    `Chip/CPU: ${p.chip || "Không rõ"}`,
+    `Tồn kho: ${p.stock > 0 ? p.stock + " sản phẩm" : "HẾT HÀNG"}`,
+    specText ? `Thông số: ${specText}` : "",
+    p.description ? `Mô tả: ${p.description}` : "",
+    p.badge ? `Đặc điểm: ${p.badge}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** Tạo embedding cho một hoặc nhiều đoạn văn bản qua BGE-M3 */
 export async function embedTexts(ai: Ai, texts: string[]): Promise<number[][]> {
-  const res = await ai.run('@cf/baai/bge-m3' as any, { text: texts }) as any;
+  const res = (await ai.run("@cf/baai/bge-m3" as any, { text: texts })) as any;
   // bge-m3 trả về { data: number[][] }
   const embeddings: number[][] = res?.data ?? res;
   if (!Array.isArray(embeddings)) {
-    throw new Error('Unexpected embedding response format');
+    throw new Error("Unexpected embedding response format");
   }
   return embeddings;
 }
 
 /** Upsert một sản phẩm vào Vectorize (gọi sau CREATE/UPDATE sản phẩm) */
-export async function indexProduct(env: Env, product: ProductDoc): Promise<void> {
+export async function indexProduct(
+  env: Env,
+  product: ProductDoc,
+): Promise<void> {
   const text = buildProductText(product);
   const [vector] = await embedTexts(env.AI, [text]);
-  await env.VECTORIZE.upsert([{
-    id: String(product.id),
-    values: vector,
-    metadata: {
-      name: product.name,
-      price: product.price,
-      stock: product.stock,
-      category_name: product.category_name ?? '',
+  await env.VECTORIZE.upsert([
+    {
+      id: String(product.id),
+      values: vector,
+      metadata: {
+        name: product.name,
+        price: product.price,
+        stock: product.stock,
+        category_name: product.category_name ?? "",
+      },
     },
-  }]);
+  ]);
 }
 
 /** Xóa embedding của sản phẩm khỏi Vectorize (gọi sau DELETE/ẩn sản phẩm) */
-export async function deleteProductIndex(env: Env, productId: number | string): Promise<void> {
+export async function deleteProductIndex(
+  env: Env,
+  productId: number | string,
+): Promise<void> {
   await env.VECTORIZE.deleteByIds([String(productId)]);
 }
 
@@ -102,7 +115,7 @@ export async function deleteProductIndex(env: Env, productId: number | string): 
 export async function searchProducts(
   env: Env,
   queryText: string,
-  topK = 4
+  topK = 4,
 ): Promise<{ id: string; score: number }[]> {
   const [queryVector] = await embedTexts(env.AI, [queryText]);
   const result = await env.VECTORIZE.query(queryVector, {
@@ -137,13 +150,19 @@ ${contextBlock}`;
 }
 
 /** Build user-facing prompt với context sản phẩm */
-export function buildChatPrompt(question: string, products: ProductDoc[]): { system: string; user: string } {
+export function buildChatPrompt(
+  question: string,
+  products: ProductDoc[],
+): { system: string; user: string } {
   let contextBlock: string;
   if (products.length === 0) {
-    contextBlock = 'THÔNG TIN SẢN PHẨM: (Không tìm thấy sản phẩm phù hợp trong cửa hàng)';
+    contextBlock =
+      "THÔNG TIN SẢN PHẨM: (Không tìm thấy sản phẩm phù hợp trong cửa hàng)";
   } else {
-    const lines = products.map(p => buildProductText(p));
-    contextBlock = 'THÔNG TIN SẢN PHẨM TRONG CỬA HÀNG:\n\n' + lines.map((l, i) => `[Sản phẩm ${i + 1}]\n${l}`).join('\n\n');
+    const lines = products.map((p) => buildProductText(p));
+    contextBlock =
+      "THÔNG TIN SẢN PHẨM TRONG CỬA HÀNG:\n\n" +
+      lines.map((l, i) => `[Sản phẩm ${i + 1}]\n${l}`).join("\n\n");
   }
 
   return {
@@ -151,4 +170,3 @@ export function buildChatPrompt(question: string, products: ProductDoc[]): { sys
     user: `Câu hỏi của khách hàng: "${question}"\nHãy trả lời trực tiếp câu hỏi trên dựa trên THÔNG TIN SẢN PHẨM được cung cấp.`,
   };
 }
-
