@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS wishlist_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(session_id, product_id)
+);

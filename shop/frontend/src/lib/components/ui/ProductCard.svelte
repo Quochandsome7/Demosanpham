@@ -3,11 +3,13 @@
   import { formatPrice } from '../../utils';
   import { cart } from '../../stores/cart';
   import { toasts } from '../../stores/toast';
+  import { wishlistStore } from '../../stores/wishlist';
   import type { Product } from '../../stores/products';
   import { goto } from '$app/navigation';
   
   let { product } = $props<{ product: Product }>();
   let adding = $state(false);
+  let wishlisted = $derived($wishlistStore.productIds.has(product.id));
   
   async function handleAddToCart(e: Event) {
     e.preventDefault();
@@ -40,6 +42,16 @@
       adding = false;
     }
   }
+
+  async function handleToggleWishlist(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    await wishlistStore.toggleWishlist(product.id);
+    toasts.add(
+      wishlisted ? `Đã xóa ${product.name} khỏi yêu thích` : `Đã thêm ${product.name} vào yêu thích`,
+      'info'
+    );
+  }
 </script>
 
 <a 
@@ -57,11 +69,18 @@
     <div class="absolute top-3 right-3 z-10">
       <button 
         type="button"
-        onclick={(e) => { e.preventDefault(); e.stopPropagation(); toasts.add(`Đã lưu ${product.name} vào danh sách yêu thích`, 'info'); }}
-        class="w-8 h-8 rounded-full bg-dark-950/70 backdrop-blur-sm flex items-center justify-center text-dark-300 hover:text-red-500 transition-colors border border-white/10 hover:border-red-500/30" 
-        aria-label="Yêu thích"
+        onclick={handleToggleWishlist}
+        class="w-8 h-8 rounded-full bg-dark-950/70 backdrop-blur-sm flex items-center justify-center transition-all border {wishlisted ? 'text-red-500 border-red-500/40 bg-red-500/10' : 'text-dark-300 hover:text-red-500 border-white/10 hover:border-red-500/30'}" 
+        aria-label={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
+        title={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
       >
-        <div class="w-4 h-4">{@html icons.heart}</div>
+        <div class="w-4 h-4">
+          {#if wishlisted}
+            {@html icons.heartFilled}
+          {:else}
+            {@html icons.heart}
+          {/if}
+        </div>
       </button>
     </div>
     
@@ -73,7 +92,7 @@
     />
   </div>
   
-  <!-- Content (Flex-1 ensures cards stretch and buttons align at bottom) -->
+  <!-- Content -->
   <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between">
     <div>
       <!-- Product Name: Fixed 2-line height for uniform card alignment -->
@@ -86,10 +105,13 @@
         <span class="text-neon-blue font-bold text-lg">{formatPrice(product.price)}</span>
         {#if product.original_price && product.original_price > product.price}
           <span class="text-dark-400 text-xs sm:text-sm line-through">{formatPrice(product.original_price)}</span>
+          <span class="text-[11px] font-bold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">
+            -{Math.round((1 - product.price / product.original_price) * 100)}%
+          </span>
         {/if}
       </div>
       
-      <!-- Chip & Specs tags (Fixed height h-[56px] so 2 lines fit and no card pushes buttons out of alignment) -->
+      <!-- Chip & Specs tags -->
       <div class="flex flex-wrap gap-1.5 h-[56px] overflow-hidden content-start my-3">
         {#if product.chip}
           <span class="text-[11px] font-medium text-cyber-300 bg-cyber-500/10 px-2 py-0.5 rounded border border-cyber-500/20">{product.chip}</span>
@@ -102,14 +124,31 @@
       </div>
     </div>
     
-    <!-- Action Buttons Row (Always perfectly aligned at bottom) -->
-    <div class="mt-auto pt-2 grid grid-cols-2 gap-2">
+    <!-- Action Buttons Row: [♡/♥] [Thêm giỏ] [Mua ngay] -->
+    <div class="mt-auto pt-2 flex items-center gap-2">
+      <!-- Heart Button (nhỏ gọn) -->
+      <button 
+        type="button"
+        onclick={handleToggleWishlist}
+        class="w-9 h-9 shrink-0 rounded-xl bg-dark-900 border {wishlisted ? 'border-red-500/40 text-red-500 bg-red-500/10' : 'border-white/10 text-dark-300 hover:text-red-500 hover:border-red-500/30'} flex items-center justify-center transition-all cursor-pointer"
+        aria-label={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
+        title={wishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
+      >
+        <div class="w-4 h-4">
+          {#if wishlisted}
+            {@html icons.heartFilled}
+          {:else}
+            {@html icons.heart}
+          {/if}
+        </div>
+      </button>
+
       <!-- Add to Cart Button -->
       <button 
         type="button"
         onclick={handleAddToCart}
         disabled={(product.stock === 0 || product.stock_quantity === 0) || adding}
-        class="w-full bg-cyber-600/20 hover:bg-cyber-600 text-cyber-300 hover:text-white border border-cyber-500/30 hover:border-cyber-500 font-medium py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        class="flex-1 bg-cyber-600/20 hover:bg-cyber-600 text-cyber-300 hover:text-white border border-cyber-500/30 hover:border-cyber-500 font-medium py-2 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
         title="Thêm vào giỏ hàng"
       >
         <div class="w-4 h-4 shrink-0">{@html icons.cart}</div>
@@ -121,7 +160,7 @@
         type="button"
         onclick={handleBuyNow}
         disabled={(product.stock === 0 || product.stock_quantity === 0) || adding}
-        class="w-full bg-gradient-to-r from-neon-orange to-cyber-500 hover:from-orange-500 hover:to-cyber-400 text-white font-semibold py-2 px-2 rounded-xl transition-all shadow-[0_0_12px_rgba(251,146,60,0.25)] hover:shadow-[0_0_16px_rgba(251,146,60,0.45)] flex items-center justify-center gap-1 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        class="flex-1 bg-gradient-to-r from-neon-orange to-cyber-500 hover:from-orange-500 hover:to-cyber-400 text-white font-semibold py-2 px-2 rounded-xl transition-all shadow-[0_0_12px_rgba(251,146,60,0.25)] hover:shadow-[0_0_16px_rgba(251,146,60,0.45)] flex items-center justify-center gap-1 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-9"
         title="Mua ngay"
       >
         <span class="truncate">Mua ngay</span>

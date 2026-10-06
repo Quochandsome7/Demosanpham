@@ -1,4 +1,4 @@
-name = "cellphonex-api"
+name = "demosanpham"
 main = "src/index.ts"
 compatibility_date = "2024-06-01"
 
@@ -6,6 +6,13 @@ compatibility_date = "2024-06-01"
 binding = "DB"
 database_name = "cellphonex-db"
 database_id = "a6093079-830b-41e7-99dc-00f3d3dc5054"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "cellphonex-products"
+
+[ai]
+binding = "AI"
 
 [vars]
 JWT_SECRET = "cellphonex-secret-key-2026"

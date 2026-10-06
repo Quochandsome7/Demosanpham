@@ -12,6 +12,8 @@
   import { auth } from '$lib/stores/auth';
   import { customerAuth } from '$lib/stores/customerAuth';
   import { productsStore } from '$lib/stores/products';
+  import { wishlistStore } from '$lib/stores/wishlist';
+  import ChatWidget from '$lib/components/ui/ChatWidget.svelte';
   
   let { children } = $props();
   
@@ -24,6 +26,7 @@
     customerAuth.checkAuth();
     productsStore.loadProducts();
     productsStore.loadCategories();
+    wishlistStore.loadWishlist();
   });
 </script>
 
@@ -45,6 +48,7 @@
     
     <CartDrawer bind:isOpen={cartOpen} />
     <AuthModal />
+    <ChatWidget />
     <Toast />
   </div>
 {/if}

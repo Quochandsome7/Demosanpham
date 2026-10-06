@@ -1,5 +1,7 @@
 export interface Env {
   DB: D1Database;
+  AI: Ai;
+  VECTORIZE: VectorizeIndex;
   JWT_SECRET: string;
   FRONTEND_URL: string;
 }

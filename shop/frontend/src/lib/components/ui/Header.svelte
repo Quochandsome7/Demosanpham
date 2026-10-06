@@ -4,6 +4,7 @@
   import { customerAuth } from '../../stores/customerAuth';
   import { authModal } from '../../stores/authModal';
   import { productsStore, searchQuery } from '../../stores/products';
+  import { wishlistCount } from '../../stores/wishlist';
   import { formatPrice } from '../../utils';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -74,6 +75,7 @@
   const navLinks = [
     { name: 'Trang chủ', href: '/' },
     { name: 'Sản phẩm', href: '/#products' },
+    { name: 'Yêu thích', href: '/wishlist' },
     { name: 'Giỏ hàng', href: '/cart' },
     { name: 'Bảo hành', href: '/page/bao-hanh' },
     { name: 'Liên hệ', href: '/page/lien-he' }
@@ -208,6 +210,21 @@
             <span>Đăng nhập</span>
           </button>
         {/if}
+
+        <!-- Wishlist Button -->
+        <a 
+          href="/wishlist"
+          class="relative p-2.5 rounded-xl bg-dark-900/80 border border-white/10 hover:border-red-500/40 text-dark-200 hover:text-red-400 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.25)] flex items-center justify-center"
+          aria-label="Yêu thích ({$wishlistCount})"
+          title="Sản phẩm yêu thích"
+        >
+          <div class="w-5 h-5">{@html icons.heart}</div>
+          {#if $wishlistCount > 0}
+            <span class="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-dark-950 shadow-md">
+              {$wishlistCount}
+            </span>
+          {/if}
+        </a>
 
         <!-- Cart Button -->
         <button 

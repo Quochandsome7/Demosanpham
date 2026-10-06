@@ -1,0 +1,145 @@
+import type { Env } from './types';
+
+// ─── Định nghĩa kiểu dữ liệu ────────────────────────────────────────────────
+
+export interface ProductDoc {
+  id: number;
+  name: string;
+  price: number;
+  original_price?: number | null;
+  description?: string | null;
+  category_id?: number | null;
+  category_name?: string | null;
+  badge?: string | null;
+  chip?: string | null;
+  specs?: string | null;
+  stock: number;
+  image_url?: string | null;
+  is_active?: number;
+}
+
+export interface ChatSource {
+  product_id: number;
+  name: string;
+  price: number;
+  original_price?: number | null;
+  image_url?: string | null;
+  stock: number;
+  badge?: string | null;
+  category_name?: string | null;
+}
+
+export interface ChatResponse {
+  answer: string;
+  sources: ChatSource[];
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Chuyển sản phẩm thành văn bản chuẩn hóa tiếng Việt để embedding */
+export function buildProductText(p: ProductDoc): string {
+  const specsRaw = p.specs;
+  let specText = '';
+  if (specsRaw) {
+    try {
+      const arr = JSON.parse(specsRaw);
+      specText = Array.isArray(arr) ? arr.join(', ') : specsRaw;
+    } catch {
+      specText = specsRaw;
+    }
+  }
+
+  const priceFormatted = new Intl.NumberFormat('vi-VN').format(p.price) + '₫';
+  const origFormatted = p.original_price && p.original_price > p.price
+    ? ' (Giá gốc: ' + new Intl.NumberFormat('vi-VN').format(p.original_price) + '₫)'
+    : '';
+
+  return [
+    `Tên: ${p.name}`,
+    `Danh mục: ${p.category_name || 'Không rõ'}`,
+    `Giá: ${priceFormatted}${origFormatted}`,
+    `Chip/CPU: ${p.chip || 'Không rõ'}`,
+    `Tồn kho: ${p.stock > 0 ? p.stock + ' sản phẩm' : 'HẾT HÀNG'}`,
+    specText ? `Thông số: ${specText}` : '',
+    p.description ? `Mô tả: ${p.description}` : '',
+    p.badge ? `Đặc điểm: ${p.badge}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+/** Tạo embedding cho một hoặc nhiều đoạn văn bản qua BGE-M3 */
+export async function embedTexts(ai: Ai, texts: string[]): Promise<number[][]> {
+  const res = await ai.run('@cf/baai/bge-m3' as any, { text: texts }) as any;
+  // bge-m3 trả về { data: number[][] }
+  const embeddings: number[][] = res?.data ?? res;
+  if (!Array.isArray(embeddings)) {
+    throw new Error('Unexpected embedding response format');
+  }
+  return embeddings;
+}
+
+/** Upsert một sản phẩm vào Vectorize (gọi sau CREATE/UPDATE sản phẩm) */
+export async function indexProduct(env: Env, product: ProductDoc): Promise<void> {
+  const text = buildProductText(product);
+  const [vector] = await embedTexts(env.AI, [text]);
+  await env.VECTORIZE.upsert([{
+    id: String(product.id),
+    values: vector,
+    metadata: {
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      category_name: product.category_name ?? '',
+    },
+  }]);
+}
+
+/** Xóa embedding của sản phẩm khỏi Vectorize (gọi sau DELETE/ẩn sản phẩm) */
+export async function deleteProductIndex(env: Env, productId: number | string): Promise<void> {
+  await env.VECTORIZE.deleteByIds([String(productId)]);
+}
+
+/** Tìm kiếm sản phẩm liên quan qua semantic search */
+export async function searchProducts(
+  env: Env,
+  queryText: string,
+  topK = 4
+): Promise<{ id: string; score: number }[]> {
+  const [queryVector] = await embedTexts(env.AI, [queryText]);
+  const result = await env.VECTORIZE.query(queryVector, {
+    topK,
+    returnMetadata: true,
+  });
+  return (result.matches ?? []).map((m: any) => ({ id: m.id, score: m.score }));
+}
+
+/** System prompt chống hallucination */
+export function buildSystemPrompt(contextBlock: string): string {
+  return `Bạn là trợ lý tư vấn bán hàng thân thiện của Cellphone X.
+
+QUY TẮC BẮT BUỘC — PHẢI TUÂN THỦ TUYỆT ĐỐI:
+1. CHỈ trả lời dựa trên dữ liệu trong "THÔNG TIN SẢN PHẨM" bên dưới. Không bịa giá, tồn kho, tên, thông số.
+2. KHÔNG đề xuất bất kỳ sản phẩm nào ngoài danh sách được cung cấp.
+3. Nếu tồn kho = 0 hoặc "HẾT HÀNG" → bắt buộc phải thông báo hết hàng.
+4. Nếu không có sản phẩm phù hợp → trả lời chính xác: "Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp trong cửa hàng. Bạn có thể hỏi theo cách khác không?"
+5. KHÔNG trả lời câu hỏi ngoài phạm vi sản phẩm/cửa hàng (chính trị, y tế, lập trình,...).
+6. Trả lời bằng tiếng Việt, ngắn gọn, thân thiện, giọng bán hàng tích cực.
+7. Tối đa 200 từ.
+
+${contextBlock}`;
+}
+
+/** Build user-facing prompt với context sản phẩm */
+export function buildChatPrompt(question: string, products: ProductDoc[]): { system: string; user: string } {
+  let contextBlock: string;
+  if (products.length === 0) {
+    contextBlock = 'THÔNG TIN SẢN PHẨM: (Không tìm thấy sản phẩm phù hợp trong cửa hàng)';
+  } else {
+    const lines = products.map(p => buildProductText(p));
+    contextBlock = 'THÔNG TIN SẢN PHẨM:\n' + lines.map((l, i) => `[SP${i + 1}]\n${l}`).join('\n\n');
+  }
+
+  return {
+    system: buildSystemPrompt(contextBlock),
+    user: `Câu hỏi của khách: "${question}"`,
+  };
+}
