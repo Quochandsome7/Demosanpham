@@ -102,22 +102,34 @@
           {#if product.specs}
             <div class="mb-8">
               <h3 class="text-lg font-semibold text-white mb-4">Cấu hình nổi bật</h3>
-              <div class="grid grid-cols-2 gap-4">
-                {#each Object.entries(product.specs) as [key, val]}
-                  <div class="flex items-start gap-3 bg-dark-800/50 p-3 rounded-lg border border-white/5">
-                    <div class="w-5 h-5 text-cyber-500 mt-0.5">{@html icons.check}</div>
-                    <div>
-                      <div class="text-dark-400 text-xs capitalize mb-1">{key}</div>
-                      <div class="text-white text-sm font-medium">{val}</div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {#if Array.isArray(product.specs)}
+                  {#each product.specs as item}
+                    <div class="flex items-center gap-3 bg-dark-800/50 p-3 rounded-lg border border-white/5">
+                      <div class="w-5 h-5 text-cyber-500 shrink-0">{@html icons.check}</div>
+                      <div class="text-white text-sm font-medium">{item}</div>
                     </div>
-                  </div>
-                {/each}
+                  {/each}
+                {:else}
+                  {#each Object.entries(product.specs) as [key, val]}
+                    <div class="flex items-start gap-3 bg-dark-800/50 p-3 rounded-lg border border-white/5">
+                      <div class="w-5 h-5 text-cyber-500 mt-0.5 shrink-0">{@html icons.check}</div>
+                      <div>
+                        <div class="text-dark-400 text-xs capitalize mb-1">{key}</div>
+                        <div class="text-white text-sm font-medium">{val}</div>
+                      </div>
+                    </div>
+                  {/each}
+                {/if}
               </div>
             </div>
           {/if}
           
-          <div class="mb-8 prose prose-invert prose-sm max-w-none text-dark-300">
-            {product.description || 'Chưa có mô tả cho sản phẩm này.'}
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-white mb-3">Mô tả sản phẩm</h3>
+            <div class="prose prose-invert prose-sm max-w-none text-dark-300 leading-relaxed whitespace-pre-line bg-dark-900/40 p-5 rounded-xl border border-white/5">
+              {product.description || 'Chưa có mô tả cho sản phẩm này.'}
+            </div>
           </div>
           
           <div class="flex flex-col sm:flex-row gap-4 mt-auto">
