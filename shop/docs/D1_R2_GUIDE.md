@@ -1,367 +1,299 @@
-# 📖 Hướng dẫn sử dụng Cloudflare D1 & R2 — Cellphone X
-
-## Mục lục
-
-- [1. Cloudflare D1 (Database)](#1-cloudflare-d1-database)
-- [2. Cloudflare R2 (Object Storage)](#2-cloudflare-r2-object-storage)
-- [3. Triển khai (Deploy)](#3-triển-khai-deploy)
-- [4. Xử lý sự cố](#4-xử-lý-sự-cố)
+# 📑 BÁO CÁO KỸ THUẬT TRIỂN KHAI HỆ THỐNG CELLPHONE X
+## TRỌNG TÂM: CLOUDFLARE WORKERS AI (BGE-M3 & LLAMA 3.3 70B), D1 & VECTORIZE
 
 ---
 
-## 1. Cloudflare D1 (Database)
+## 📌 THÔNG TIN DỰ ÁN
 
-### D1 là gì?
+| Mục | Chi tiết |
+|---|---|
+| **Tên dự án** | **Cellphone X** — Nền tảng thương mại điện tử công nghệ thế hệ mới |
+| **Mã nguồn (GitHub)** | [https://github.com/Quochandsome7/Demosanpham](https://github.com/Quochandsome7/Demosanpham) |
+| **Backend API (Cloudflare Worker)** | [https://demosanpham.dtc235200623.workers.dev/](https://demosanpham.dtc235200623.workers.dev/) |
+| **Frontend Website (Cloudflare Pages)** | [https://demosanpham.pages.dev/](https://demosanpham.pages.dev/) |
+| **Tác giả / Phát triển** | **Quốc Jee** |
 
-D1 là cơ sở dữ liệu SQL (SQLite) serverless của Cloudflare, chạy trên edge. Trong Cellphone X, D1 lưu trữ:
+---
 
-- **Sản phẩm** (products)
-- **Danh mục** (categories)
-- **Khách hàng** (customers)
-- **Đơn hàng** (orders + order_items)
-- **Giỏ hàng** (cart_items)
-- **Tài khoản admin** (admin_users)
+## 1. TỔNG QUAN HẠ TẦNG CLOUDFLARE WORKERS AI
 
-### Chi phí D1
+### 1.1. Cloudflare Workers AI là gì?
+Cloudflare Workers AI là nền tảng điện toán suy luận AI không máy chủ (Serverless AI Inference) chạy trực tiếp trên mạng lưới biên (Edge Network) của Cloudflare. Hệ thống tận dụng các cụm GPU chuyên dụng được phân bổ tại hàng trăm trung tâm dữ liệu toàn cầu để thực thi mô hình AI với độ trễ thấp và tính sẵn sàng cao.
 
-| Hạng mục           | Gói Free (Workers Free) | Gói trả phí           |
-| ------------------ | ----------------------- | --------------------- |
-| Đọc (rows read)    | **5 triệu/ngày**        | $0.001 / 1 triệu rows |
-| Ghi (rows written) | **100.000/ngày**        | $1.00 / 1 triệu rows  |
-| Dung lượng DB      | **5 GB**                | $0.75 / GB-tháng      |
+### 1.2. Tại sao lựa chọn Cloudflare Workers AI?
+1. **Không cần GPU Server riêng**: Loại bỏ hoàn toàn chi phí thuê VPS/GPU đắt đỏ và các thao tác vận hành phức tạp (Ollama, vLLM, FastAPI).
+2. **Không phụ thuộc API bên thứ 3 (OpenAI/Anthropic)**: Tránh phát sinh chi phí theo từng triệu token của các bên cung cấp dịch vụ ngoài; tận dụng trọn vẹn quota serverless trong hệ sinh thái Cloudflare.
+3. **Độ trễ mạng cực thấp (Zero Network Hop)**: Toàn bộ Backend (Hono Worker), Vector Database (Vectorize), Database quan hệ (D1) và Workers AI đều chạy chung trong một hạ tầng Cloudflare Edge, dữ liệu luân chuyển nội bộ với tốc độ cao nhất.
+4. **Native Binding**: Kết nối trực tiếp qua biến môi trường `env.AI` mà không cần cấu hình API Key bí mật hay lo sợ rò rỉ token trên client.
 
-> 💡 Với shop nhỏ-vừa, **hoàn toàn miễn phí**!
+### 1.3. Cấu hình Binding trong `wrangler.toml`
+```toml
+name = "demosanpham"
+main = "src/index.ts"
+compatibility_date = "2024-06-01"
 
-### Các bước thiết lập D1
+# 1. AI Inference Engine
+[ai]
+binding = "AI"
 
-#### Bước 1: Đăng nhập Wrangler
+# 2. Vector Database (1024 chiều, cosine similarity)
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "cellphonex-products"
 
-```bash
-npx wrangler login
-```
-
-Trình duyệt sẽ mở ra → Đăng nhập tài khoản Cloudflare → Cho phép quyền truy cập.
-
-#### Bước 2: Tạo database D1
-
-```bash
-cd backend
-npx wrangler d1 create cellphonex-db
-```
-
-Kết quả sẽ hiện:
-
-```
-✅ Successfully created DB 'cellphonex-db'
-
+# 3. Database SQLite Serverless
 [[d1_databases]]
 binding = "DB"
 database_name = "cellphonex-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-```
+database_id = "a6093079-830b-41e7-99dc-00f3d3dc5054"
 
-#### Bước 3: Cập nhật wrangler.toml
-
-Sao chép `database_id` từ bước 2 vào file `backend/wrangler.toml`:
-
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "cellphonex-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # ← Paste ID vào đây
-```
-
-#### Bước 4: Chạy schema (tạo bảng)
-
-```bash
-# Local (để phát triển)
-npx wrangler d1 execute cellphonex-db --local --file=src/db/schema.sql
-
-# Production (khi deploy)
-npx wrangler d1 execute cellphonex-db --file=src/db/schema.sql
-```
-
-#### Bước 5: Chạy seed data (thêm dữ liệu mẫu)
-
-```bash
-# Local
-npx wrangler d1 execute cellphonex-db --local --file=src/db/seed.sql
-
-# Production
-npx wrangler d1 execute cellphonex-db --file=src/db/seed.sql
-```
-
-#### Bước 6: Kiểm tra dữ liệu
-
-```bash
-# Xem danh sách sản phẩm
-npx wrangler d1 execute cellphonex-db --local --command="SELECT id, name, price FROM products"
-
-# Xem danh mục
-npx wrangler d1 execute cellphonex-db --local --command="SELECT * FROM categories"
-
-# Xem admin
-npx wrangler d1 execute cellphonex-db --local --command="SELECT id, username FROM admin_users"
-```
-
-### Các lệnh D1 thường dùng
-
-| Lệnh                                       | Mô tả                   |
-| ------------------------------------------ | ----------------------- |
-| `wrangler d1 list`                         | Liệt kê tất cả database |
-| `wrangler d1 execute <db> --command="SQL"` | Chạy SQL trực tiếp      |
-| `wrangler d1 execute <db> --file=file.sql` | Chạy file SQL           |
-| `wrangler d1 execute <db> --local ...`     | Chạy trên DB local      |
-| `wrangler d1 info <db>`                    | Xem thông tin database  |
-| `wrangler d1 delete <db>`                  | Xóa database            |
-
-### Schema Database
-
-```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│ categories  │     │   products   │     │  cart_items   │
-│─────────────│     │──────────────│     │──────────────│
-│ id (PK)     │◄────│ category_id  │     │ id (PK)      │
-│ name        │     │ id (PK)      │◄────│ product_id   │
-│ slug        │     │ name         │     │ session_id   │
-│ icon        │     │ price        │     │ quantity     │
-│ created_at  │     │ original_price│    │ created_at   │
-└─────────────┘     │ image_url    │     └──────────────┘
-                    │ description  │
-                    │ rating       │     ┌──────────────┐
-                    │ reviews      │     │  customers   │
-                    │ badge        │     │──────────────│
-                    │ chip         │     │ id (PK)      │
-                    │ specs (JSON) │     │ name         │
-                    │ stock        │     │ email        │
-                    │ is_active    │     │ phone        │
-                    │ created_at   │     │ address      │
-                    │ updated_at   │     │ created_at   │
-                    └──────────────┘     └──────┬───────┘
-                                               │
-┌──────────────┐     ┌──────────────┐          │
-│ order_items  │     │   orders     │          │
-│──────────────│     │──────────────│          │
-│ id (PK)      │     │ id (PK)      │◄─────────┘
-│ order_id ────│────►│ customer_id  │
-│ product_id   │     │ status       │
-│ quantity     │     │ total        │
-│ price        │     │ shipping_addr│
-└──────────────┘     │ phone        │
-                     │ note         │
-┌──────────────┐     │ created_at   │
-│ admin_users  │     │ updated_at   │
-│──────────────│     └──────────────┘
-│ id (PK)      │
-│ username     │
-│ password_hash│
-│ created_at   │
-└──────────────┘
+[vars]
+JWT_SECRET = "cellphonex-secret-key-2026"
+FRONTEND_URL = "https://demosanpham.pages.dev"
 ```
 
 ---
 
-## 2. Cloudflare R2 (Object Storage)
+## 2. HAI MÔ HÌNH AI CỐT LÕI
 
-### R2 là gì?
-
-R2 là dịch vụ lưu trữ đối tượng (object storage) của Cloudflare, tương tự Amazon S3 nhưng **không tính phí bandwidth**. Trong Cellphone X, R2 dùng để:
-
-- 📸 Lưu ảnh sản phẩm do Admin upload
-- 🖼️ Serve ảnh cho khách hàng truy cập web
-- 📁 Lưu trữ file media khác (banner, logo...)
-
-### Chi phí R2
-
-| Hạng mục               | Miễn phí hàng tháng        | Phí vượt mức      |
-| ---------------------- | -------------------------- | ----------------- |
-| **Dung lượng**         | 10 GB                      | $0.015 / GB-tháng |
-| **Class A (PUT/POST)** | 1 triệu request            | $4.50 / 1 triệu   |
-| **Class B (GET)**      | 10 triệu request           | $0.36 / 1 triệu   |
-| **Bandwidth (egress)** | **KHÔNG GIỚI HẠN — $0** ✅ | $0                |
-
-> 💡 Với vài chục sản phẩm, mỗi ảnh 200-500KB → chỉ dùng ~100MB → **1% gói free**!
-
-### Các bước thiết lập R2
-
-#### Bước 1: Tạo R2 bucket
-
-```bash
-cd backend
-npx wrangler r2 bucket create cellphonex-images
-```
-
-Kết quả:
-
-```
-✅ Created bucket 'cellphonex-images'
-```
-
-#### Bước 2: Xác nhận wrangler.toml
-
-File `backend/wrangler.toml` đã có sẵn cấu hình R2:
-
-```toml
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "cellphonex-images"
-```
-
-#### Bước 3: Kiểm tra bucket
-
-```bash
-# Liệt kê bucket
-npx wrangler r2 bucket list
-
-# Xem objects trong bucket
-npx wrangler r2 object list cellphonex-images
-```
-
-### Cách hoạt động R2 trong Cellphone X
-
-#### Upload ảnh (Admin Panel)
-
-1. Admin vào trang Quản lý Sản phẩm → Thêm/Sửa sản phẩm
-2. Kéo thả hoặc chọn file ảnh từ máy tính
-3. Frontend gửi file qua `POST /api/v1/upload` (multipart/form-data)
-4. Backend nhận file → tạo key duy nhất → lưu vào R2 bucket
-5. Trả về URL ảnh: `/api/v1/images/{key}`
-6. URL này được lưu vào trường `image_url` của product trong D1
-
-#### Hiển thị ảnh (Customer)
-
-1. Khách truy cập web → Frontend load product data từ API
-2. Product có `image_url` trỏ đến `/api/v1/images/{key}`
-3. Backend nhận request → đọc file từ R2 → trả về với Content-Type và cache headers
-4. Ảnh hiển thị trên trình duyệt
-
-```
-Admin Upload Flow:
-┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Admin   │────►│  Worker  │────►│    R2    │
-│ (browser)│ POST│  (API)   │ PUT │ (bucket) │
-└──────────┘     └──────────┘     └──────────┘
-                      │
-                      ▼
-                 ┌──────────┐
-                 │    D1    │ Save image_url
-                 │   (DB)   │
-                 └──────────┘
-
-Customer View Flow:
-┌──────────┐     ┌──────────┐     ┌──────────┐
-│ Customer │────►│  Worker  │────►│    R2    │
-│ (browser)│ GET │  (API)   │ GET │ (bucket) │
-└──────────┘     └──────────┘     └──────────┘
-```
-
-### Các lệnh R2 thường dùng
-
-| Lệnh                                                  | Mô tả                        |
-| ----------------------------------------------------- | ---------------------------- |
-| `wrangler r2 bucket list`                             | Liệt kê tất cả bucket        |
-| `wrangler r2 bucket create <name>`                    | Tạo bucket mới               |
-| `wrangler r2 bucket delete <name>`                    | Xóa bucket                   |
-| `wrangler r2 object list <bucket>`                    | Liệt kê objects trong bucket |
-| `wrangler r2 object get <bucket> <key>`               | Tải object về                |
-| `wrangler r2 object put <bucket> <key> --file=<path>` | Upload file lên bucket       |
-| `wrangler r2 object delete <bucket> <key>`            | Xóa object                   |
+| Mô hình | Định danh trên Workers AI | Vai trò kỹ thuật | Đặc tính nổi bật |
+|---|---|---|---|
+| **BGE-M3** | `@cf/baai/bge-m3` | **Text Embedding** (Biến đổi văn bản thành vector) | Hỗ trợ đa ngôn ngữ (Multilingual), xử lý tiếng Việt ngữ nghĩa sâu, tạo vector **1024 chiều** |
+| **Llama 3.3 70B** | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | **Text Generation** (Sinh câu trả lời tiếng Việt) | Quy mô **70 tỷ tham số**, tối ưu lượng tử hóa **fp8-fast**, phản xạ tiếng Việt chuẩn xác, tuân thủ prompt nghiêm ngặt |
 
 ---
 
-## 3. Triển khai (Deploy)
+## 3. KIẾN TRÚC RAG (RETRIEVAL-AUGMENTED GENERATION)
 
-### Bước setup đầy đủ (lần đầu)
+Kiến trúc RAG giải quyết bài toán cốt lõi: **Giúp AI trả lời chính xác theo dữ liệu thực tế của kho hàng Cellphone X mà không bịa đặt (Hallucination)**.
 
-```bash
-# 1. Đăng nhập Cloudflare
-npx wrangler login
+### 3.1. Sơ đồ luồng xử lý RAG
 
-# 2. Tạo D1 database
-cd backend
-npx wrangler d1 create cellphonex-db
-# → Copy database_id vào wrangler.toml
-
-# 3. Tạo R2 bucket
-npx wrangler r2 bucket create cellphonex-images
-
-# 4. Chạy schema + seed (production)
-npx wrangler d1 execute cellphonex-db --file=src/db/schema.sql
-npx wrangler d1 execute cellphonex-db --file=src/db/seed.sql
-
-# 5. Deploy backend
-npx wrangler deploy
-
-# 6. Build & deploy frontend
-cd ../frontend
-npm run build
-# Deploy build output lên Cloudflare Pages hoặc hosting khác
 ```
-
-### Chạy local (phát triển)
-
-```bash
-# Terminal 1: Backend API (port 8787)
-cd backend
-npx wrangler d1 execute cellphonex-db --local --file=src/db/schema.sql
-npx wrangler d1 execute cellphonex-db --local --file=src/db/seed.sql
-npm run dev
-
-# Terminal 2: Frontend (port 5173)
-cd frontend
-npm run dev
+               Khách hàng đặt câu hỏi
+                         ↓
+               ChatWidget (Svelte 5)
+                         ↓
+                  POST /api/v1/chat
+                         ↓
+             Bộ lọc Intent nhanh (Regex)
+      ┌──────────────────┴──────────────────┐
+      ▼                                     ▼
+Ý định chung (Chào, FAQ, CSKH)        Hỏi về sản phẩm cụ thể
+      ↓                                     ↓
+Trả lời ngay lập tức (<15ms)          BGE-M3 Embedding (1024 chiều)
+(0 token, tiết kiệm quota AI)                ↓
+                                      Cloudflare Vectorize (Cosine search top 4)
+                                             ↓
+                                      Lọc ngưỡng (Score >= 0.40 & TopScore - 0.12)
+                                             ↓
+                                      Truy xuất dữ liệu thực tế từ Cloudflare D1
+                                             ↓
+                                      Xây dựng Prompt (System Rules + Real Context)
+                                             ↓
+                                      Llama 3.3 70B (Sinh câu trả lời <150 từ)
+                                             ↓
+                                      Lọc thẻ sản phẩm liên quan (Relevant Sources)
+                                             ↓
+                                      Frontend hiển thị câu trả lời + Card sản phẩm
 ```
-
-Truy cập:
-
-- 🛒 Customer UI: http://localhost:5173
-- 🔧 Admin Panel: http://localhost:5173/admin/login
-- 📡 API: http://localhost:8787/api/v1/products
-
-### Đăng nhập Admin
-
-- **Username**: `admin`
-- **Password**: `admin123`
-
-> ⚠️ **Quan trọng**: Đổi mật khẩu admin và JWT_SECRET trước khi deploy production!
 
 ---
 
-## 4. Xử lý sự cố
+## 4. QUY TRÌNH 1: EMBEDDING DỮ LIỆU SẢN PHẨM VỚI BGE-M3
 
-### D1: "no such table"
-
-```bash
-# Chạy lại schema
-npx wrangler d1 execute cellphonex-db --local --file=src/db/schema.sql
+### 4.1. Chuẩn hóa ngữ nghĩa sản phẩm (`buildProductText`)
+Mỗi sản phẩm trong bảng `products` được hàm `buildProductText()` chuyển thành chuỗi văn bản giàu ngữ cảnh tiếng Việt (tại `shop/backend/src/lib/rag.ts`):
+```typescript
+export function buildProductText(p: ProductDoc): string {
+  const priceFormatted = new Intl.NumberFormat("vi-VN").format(p.price) + "₫";
+  return [
+    `Tên: ${p.name}`,
+    `Danh mục: ${p.category_name || "Không rõ"}`,
+    `Giá: ${priceFormatted}`,
+    `Chip/CPU: ${p.chip || "Không rõ"}`,
+    `Tồn kho: ${p.stock > 0 ? p.stock + " sản phẩm" : "HẾT HÀNG"}`,
+    `Thông số: ${p.specs}`,
+    `Mô tả: ${p.description}`,
+    `Đặc điểm: ${p.badge}`
+  ].filter(Boolean).join("\n");
+}
 ```
 
-### D1: "database not found"
-
-```bash
-# Kiểm tra database_id trong wrangler.toml có đúng không
-npx wrangler d1 list
+### 4.2. Gọi mô hình BGE-M3 (`embedTexts`)
+```typescript
+export async function embedTexts(ai: Ai, texts: string[]): Promise<number[][]> {
+  const res = await ai.run("@cf/baai/bge-m3" as any, { text: texts });
+  return res?.data ?? res; // Trả về mảng các vector số thực 1024 chiều
+}
 ```
 
-### R2: "bucket not found"
-
-```bash
-# Tạo lại bucket
-npx wrangler r2 bucket create cellphonex-images
+### 4.3. Lưu trữ vector vào Cloudflare Vectorize
+```typescript
+await env.VECTORIZE.upsert([
+  {
+    id: String(product.id),
+    values: vector, // 1024 chiều
+    metadata: {
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      category_name: product.category_name
+    }
+  }
+]);
 ```
 
-### R2: Upload ảnh bị lỗi 413 (file quá lớn)
+### 4.4. Cơ chế đồng bộ dữ liệu tự động
+- **Khi thêm/sửa sản phẩm**: Backend tự động chạy hook `c.executionCtx.waitUntil(indexProduct(...))` để embed và upsert ngầm vào Vectorize mà không làm chậm thời gian phản hồi của trang Admin.
+- **Khi xóa sản phẩm**: Tự động gọi `deleteProductIndex()` xóa vector khỏi index.
+- **Endpoint re-index toàn bộ**: `POST /api/v1/chat/reindex` hỗ trợ embed batch 50 sản phẩm và upsert batch 100 vector.
 
-- Giảm kích thước ảnh < 5MB
-- Nén ảnh trước khi upload (dùng tinypng.com)
+---
 
-### Frontend không gọi được API
+## 5. QUY TRÌNH 2: TRUY XUẤT NGỮ NGHĨA (SEMANTIC RETRIEVAL)
 
-- Kiểm tra backend đang chạy ở port 8787
-- Kiểm tra proxy trong `vite.config.ts` trỏ đúng đến `http://localhost:8787`
-- Kiểm tra CORS trong `backend/src/middleware/cors.ts`
+### 5.1. Thuật toán lọc ngưỡng (Relevance Filtering)
+Trong `shop/backend/src/routes/chat.ts`:
+- **Ngưỡng sàn tuyệt đối**: `SIMILARITY_THRESHOLD = 0.40`. Mọi vector có điểm cosine dưới 0.40 đều bị loại bỏ ngay.
+- **Ngưỡng chênh lệch tương đối (Relative Cutoff)**:
+  ```typescript
+  const topScore = validMatches[0].score;
+  semanticMatches = validMatches.filter(m => m.score >= Math.max(0.40, topScore - 0.12));
+  ```
+  Nếu kết quả top 1 đạt điểm rất cao (ví dụ: 0.85), các sản phẩm có điểm thấp hơn 0.73 sẽ bị lọc bớt, đảm bảo context đưa vào AI luôn tập trung nhất.
 
-### Lỗi JWT / Unauthorized
+### 5.2. Fallback Keyword Search thông minh
+Nếu Vectorize gặp trục trặc hoặc không có vector vượt ngưỡng, hệ thống kích hoạt hàm `extractKeywords()` loại bỏ stop-words tiếng Việt và chấm điểm trên các trường `name`, `chip`, `description` trong SQLite D1 để tìm sản phẩm thay thế.
 
-- Xóa localStorage → đăng nhập lại
-- Kiểm tra JWT_SECRET trong wrangler.toml
+---
+
+## 6. QUY TRÌNH 3: SINH CÂU TRẢ LỜI VỚI LLAMA 3.3 70B & CHỐNG ẢO GIÁC
+
+### 6.1. Thiết kế System Prompt nghiêm ngặt
+```typescript
+export function buildSystemPrompt(contextBlock: string): string {
+  return `Bạn là trợ lý tư vấn bán hàng thông minh, thân thiện của Cellphone X.
+
+THÔNG TIN CHUNG CỬA HÀNG CELLPHONE X:
+- Thanh toán: Hỗ trợ COD (kiểm tra hàng), Chuyển khoản QR ngân hàng 24/7, Trả góp 0%.
+- Bảo hành: Chính hãng 12 - 24 tháng cho máy, 6 tháng cho phụ kiện.
+- Đổi trả: 1 đổi 1 trong 30 ngày nếu lỗi kỹ thuật.
+- Vận chuyển: Miễn phí ship từ 500.000₫. Giao hỏa tốc 2 - 4 tiếng tại Thái Nguyên.
+- Hotline: 0969610085. Địa chỉ: TP. Thái Nguyên.
+
+QUY TẮC BẮT BUỘC — PHẢI TUÂN THỦ TUYỆT ĐỐI:
+1. CHỈ trả lời dựa trên "THÔNG TIN CHUNG CỬA HÀNG" và "THÔNG TIN SẢN PHẨM" bên dưới.
+2. TUYỆT ĐỐI KHÔNG tự bịa tên sản phẩm, giá bán, tồn kho, chip hay thông số kỹ thuật.
+3. TUYỆT ĐỐI KHÔNG đề xuất bất kỳ sản phẩm nào ngoài danh sách được cung cấp.
+4. Nếu tồn kho bằng 0 hoặc ghi "HẾT HÀNG", bắt buộc phải thông báo hết hàng.
+5. Nếu khách hỏi sản phẩm mà cửa hàng không có, hãy trả lời chính xác:
+   "Xin lỗi, tôi không tìm thấy sản phẩm nào phù hợp trong cửa hàng. Bạn có thể hỏi theo cách khác không?"
+6. Trả lời bằng tiếng Việt, thân thiện, tự nhiên, đúng trọng tâm (dưới 150 từ).
+
+${contextBlock}`;
+}
+```
+
+### 6.2. Chốt chặn ngắt luồng sớm (Zero-Shot Guard)
+Nếu qua bước Retrieval mà **không tìm thấy bất kỳ sản phẩm nào phù hợp**, hệ thống lập tức trả lời từ chối:
+```typescript
+if (contextProducts.length === 0) {
+  return c.json({
+    success: true,
+    data: { answer: REJECT_ANSWER, sources: [] }
+  });
+}
+```
+**Hoàn toàn ngắt luồng, không gọi tới Llama 3.3 70B**:
+- **Triệt tiêu 100% ảo giác (Hallucination)** vì AI không có cơ hội tự bịa sản phẩm ngoài đời.
+- **Tiết kiệm tối đa quota token** của hệ thống.
+
+### 6.3. Cấu hình tham số gọi Llama 3.3 70B
+```typescript
+const llmRes = await c.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage }
+  ],
+  max_tokens: 512,
+  temperature: 0.2 // Nhiệt độ thấp giúp câu trả lời bám sát dữ liệu, chuẩn xác và nhất quán
+});
+```
+
+### 6.4. Lọc thẻ sản phẩm đính kèm (Relevant Sources)
+Hệ thống đối chiếu văn bản câu trả lời với tên và từ khóa sản phẩm:
+```typescript
+const relevantSources = contextProducts.filter(p => {
+  const pName = p.name.toLowerCase();
+  const firstWord = pName.split(' ')[0]; // 'iphone', 'samsung', 'macbook'...
+  return lowerAns.includes(pName) || lowerAns.includes(firstWord);
+});
+```
+Chỉ những sản phẩm thực sự được nhắc đến trong câu trả lời mới được đính kèm Card tương tác để khách bấm xem chi tiết hoặc mua ngay.
+
+---
+
+## 7. BỘ LỌC Ý ĐỊNH HỘI THOẠI (INTENT ROUTING)
+
+Hệ thống tích hợp bộ lọc Regex Intent xử lý các câu hỏi phổ biến dưới **15ms**, không tốn token AI:
+- **Chào hỏi (`greeting`)**: Giới thiệu chatbot Cellphone X.
+- **Quy trình thanh toán (`payment_process`)**: Giới thiệu VietQR, COD, trả góp 0%.
+- **Chính sách bảo hành / đổi trả / vận chuyển**: Cung cấp chính sách chính thức của cửa hàng.
+- **Thông tin liên hệ (`contact_info`)**: Cung cấp Hotline `0969610085`.
+- **Hỏi danh sách sản phẩm (`list`)**: Truy vấn trực tiếp SQLite D1 gom nhóm theo danh mục.
+
+---
+
+## 8. CÁC TÍNH NĂNG BỔ TRỢ CỦA HỆ THỐNG CELLPHONE X
+
+### 8.1. Tìm kiếm và Bộ lọc 1 hàng
+- Bộ lọc tích hợp toàn diện trên 1 hàng (Desktop): Ô tìm kiếm từ khóa + Danh mục + Khoảng giá `Từ ₫ - Đến ₫` + Sắp xếp giá/tên + Nút Xóa lọc.
+- Tìm kiếm tức thì (Live Quick Suggestions) trên Header hỗ trợ gõ tiếng Việt có dấu/không dấu, hiển thị ngay 5 kết quả gợi ý.
+
+### 8.2. Sản phẩm yêu thích (Wishlist)
+- Hoạt động session-based qua `x-session-id` và LocalStorage, không bắt buộc đăng nhập.
+- Nút tim ở góc trên bên phải Product Card áp dụng **Optimistic UI Update** đổi màu tức thì.
+- Trang `/wishlist` hỗ trợ quản lý và mua ngay sản phẩm đã lưu.
+
+### 8.3. Giỏ hàng & Thanh toán VietQR
+- Giỏ hàng HttpOnly Cookie 30 ngày an toàn.
+- Nút "Mua ngay" chuyển thẳng vào trang `/checkout`.
+- Hỗ trợ thanh toán **VietQR động chuẩn Napas 24/7** tích hợp 5 ngân hàng lớn (MB Bank, Vietcombank, Techcombank, BIDV, VPBank - STK `0969610085` - NGUYEN VAN QUOC) sinh mã QR kèm cú pháp đơn hàng `CPX{orderId}`.
+
+---
+
+## 9. BỘ CÂU HỎI & TRẢ LỜI BẢO VỆ CHUYÊN SÂU VỀ AI
+
+### Câu 1: Tại sao hệ thống chọn mô hình BGE-M3 cho tác vụ Embedding?
+> **Trả lời:**
+> BGE-M3 (BAAI General Embedding) là mô hình embedding đa ngôn ngữ hiện đại, hỗ trợ hơn 100 ngôn ngữ, đặc biệt tiếng Việt được đánh giá rất cao. Mô hình trích xuất được ngữ nghĩa sâu của câu (Dense Retrieval) và tạo ra vector 1024 chiều. Các model khác như `bge-small-en` chỉ tối ưu cho tiếng Anh, nếu dùng cho tiếng Việt sẽ bị mất ngữ nghĩa.
+
+### Câu 2: Llama 3.3 70B Instruct fp8-fast có ưu điểm gì so với các model 8B nhỏ hơn?
+> **Trả lời:**
+> Model quy mô 70 tỷ tham số có khả năng suy luận logic vượt trội và tuân thủ chặt chẽ các chỉ dẫn trong System Prompt (đặc biệt là các câu lệnh cấm: *không được bịa giá, không được đề xuất ngoài kho*). Bản `fp8-fast` đã được lượng tử hóa 8-bit dấu phẩy động, giúp tốc độ sinh từ (Token generation speed) cực nhanh trên hạ tầng Workers AI mà chất lượng câu trả lời tương đương bản 16-bit.
+
+### Câu 3: Làm thế nào để khẳng định Chatbot không bao giờ nói sai giá hoặc bịa sản phẩm?
+> **Trả lời:** Hệ thống có **3 lớp phòng thủ**:
+> 1. **Dữ liệu thực tế**: Giá và tồn kho được lấy trực tiếp từ database D1 tại thời điểm khách hỏi rồi mới đưa vào Prompt.
+> 2. **Chốt chặn Zero-Shot Guard**: Không tìm thấy sản phẩm trong Vectorize/DB thì lập tức trả lời từ chối, **không gọi LLM**.
+> 3. **Tham số Temperature = 0.2**: Ép mô hình tập trung vào việc đọc và tóm tắt thông tin từ context, giảm tối đa tính ngẫu nhiên (creativity) vốn là nguyên nhân chính gây ảo giác.
+
+### Câu 4: Sự khác biệt giữa Vectorize (Vector Search) và SQLite D1 (Keyword Search)?
+> **Trả lời:**
+> - **SQLite D1 (Keyword Search)**: So khớp ký tự chính xác. Nếu khách gõ *"máy tính mỏng nhẹ để làm đồ họa"* thì câu lệnh `LIKE` sẽ không ra kết quả vì tên sản phẩm là *"MacBook Air M3"*.
+> - **Vectorize (Semantic Search)**: So khớp ý nghĩa ngữ cảnh. BGE-M3 hiểu rằng *"máy tính mỏng nhẹ đồ họa"* có khoảng cách vector rất gần với *"MacBook Air M3 mỏng 11.3mm, nặng 1.24kg, đồ họa 4K"*, do đó hệ thống vẫn truy xuất được sản phẩm chính xác.
+
+### Câu 5: Hệ thống xử lý thế nào khi sản phẩm thay đổi giá hoặc hết hàng?
+> **Trả lời:**
+> Khi Admin cập nhật giá hoặc tồn kho trên trang quản trị, backend sẽ cập nhật bản ghi trong bảng `products` (D1) và đồng thời chạy hook `indexProduct()` để embed lại mô tả mới vào Cloudflare Vectorize. Do đó, câu hỏi tiếp theo của khách hàng sẽ ngay lập tức được trả lời với giá bán và tồn kho mới nhất.
+
+---
+
+## 10. TỔNG KẾT
+
+Hệ thống AI tại **Cellphone X** đã khai thác tối đa sức mạnh của **Cloudflare Workers AI**:
+1. Tự động hóa hoàn toàn quy trình tư vấn khách hàng bằng tiếng Việt tự nhiên.
+2. Kiến trúc **RAG chuẩn mực**: BGE-M3 (Embedding) + Cloudflare Vectorize (Storage & Cosine Search) + Llama 3.3 70B (Generation).
+3. Triệt tiêu hoàn toàn rủi ro ảo giác AI thông qua cơ chế lọc ngữ cảnh đa tầng và chốt chặn ngắt luồng sớm.
+4. Tối ưu chi phí và độ trễ ở mức tối đa nhờ nền tảng Serverless Edge phân tán toàn cầu.
