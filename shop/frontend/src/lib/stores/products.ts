@@ -1,3 +1,4 @@
+import { trackSearch } from "../analytics";
 import { writable, derived } from "svelte/store";
 import { api } from "../api";
 
@@ -60,6 +61,9 @@ function matchText(text: string | null | undefined, q: string): boolean {
 
 // Standalone writable store for search query: avoids any loop or mutation issues
 export const searchQuery = writable<string>("");
+
+// Ghi sự kiện tìm kiếm (debounce 1 giây trong trackSearch)
+searchQuery.subscribe(trackSearch);
 
 function createProductsStore() {
   const { subscribe, set, update } = writable<ProductsState>(initialState);

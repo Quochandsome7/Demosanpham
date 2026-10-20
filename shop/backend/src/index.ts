@@ -12,6 +12,7 @@ import upload from './routes/upload';
 import customerAuth from './routes/customerAuth';
 import chat from './routes/chat';
 import wishlist from './routes/wishlist';
+import analytics from './routes/analytics';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -37,5 +38,6 @@ api.route('/cart', cart);
 api.route('/upload', upload);
 api.route('/chat', chat);
 api.route('/wishlist', wishlist);
+api.route('/analytics', analytics);
 
 export default app;

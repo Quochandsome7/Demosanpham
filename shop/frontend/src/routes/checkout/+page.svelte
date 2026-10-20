@@ -8,6 +8,7 @@
   import { authModal } from '$lib/stores/authModal';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { trackShop } from '$lib/analytics';
   
   let cartItems = $derived($cart.items);
   let total = $derived($cartTotal);
@@ -32,6 +33,8 @@
   // Order submission state
   let loading = $state(false);
   let success = $state(false);
+
+  onMount(() => trackShop('begin_checkout'));
   let orderId = $state<number | string>(0);
   let orderTotal = $state(0);
 
@@ -115,6 +118,7 @@
       orderId = res.data?.id || Math.floor(10000 + Math.random() * 90000);
       orderTotal = finalTotal;
       success = true;
+      trackShop('purchase');
       cart.clear();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {

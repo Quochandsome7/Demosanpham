@@ -14,6 +14,8 @@
   import { productsStore } from '$lib/stores/products';
   import { wishlistStore } from '$lib/stores/wishlist';
   import ChatWidget from '$lib/components/ui/ChatWidget.svelte';
+  import { trackShop } from '$lib/analytics';
+  import { afterNavigate } from '$app/navigation';
   
   let { children } = $props();
   
@@ -27,6 +29,10 @@
     productsStore.loadProducts();
     productsStore.loadCategories();
     wishlistStore.loadWishlist();
+  });
+
+  afterNavigate(({ to }) => {
+    if (to && !to.url.pathname.startsWith('/admin')) trackShop('page_view');
   });
 </script>
 

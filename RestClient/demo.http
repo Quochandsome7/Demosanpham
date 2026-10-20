@@ -1,0 +1,36 @@
+@ingest = https://f8fb6f6f730b404fb2f273fd789d04df.ingest.cloudflare.com
+@api = https://demosanpham.dtc235200623.workers.dev/api/v1
+
+### 1. (Cách cũ, không còn dùng cho thống kê) Gửi thẳng 1 sự kiện vào Pipeline stream (body là MẢNG, time tính bằng millisecond)
+POST {{ingest}}
+Content-Type: application/json
+
+[
+  {
+    "id": "visitor-02",
+    "country": "VN",
+    "device": "ios",
+    "ip": "123.45.67.234",
+    "time": 1792396800000,
+    "meta": { "path": "/", "referrer": "" }
+  }
+]
+
+### 2. Ghi một sự kiện vào D1 qua backend (device/browser/os/ip/country/city do server tự điền)
+#    event: page_view | product_view | search | add_to_cart | begin_checkout | purchase
+POST {{api}}/analytics/event
+Content-Type: application/json
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148 Safari/604.1
+
+{ "event": "page_view", "path": "/", "referrer": "https://www.facebook.com/", "visitor_id": "visitor-demo-0001" }
+
+### 3. Đăng nhập admin để lấy token
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "admin123" }
+
+### 4. Thống kê 24 giờ qua (đổi hours=168 cho 7 ngày, 720 cho 30 ngày)
+GET {{api}}/analytics/stats?hours=24
+Authorization: Bearer {{login.response.body.data.token}}

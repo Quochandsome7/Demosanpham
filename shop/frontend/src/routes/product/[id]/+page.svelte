@@ -4,12 +4,17 @@
   import { cart } from '$lib/stores/cart';
   import { toasts } from '$lib/stores/toast';
   import ProductCard from '$lib/components/ui/ProductCard.svelte';
+  import { trackShop } from '$lib/analytics';
   
   let { data } = $props();
   let product = $derived(data.product);
   let relatedProducts = $derived(data.relatedProducts);
   
   let quantity = $state(1);
+
+  $effect(() => {
+    if (product?.id) trackShop('product_view', { product_id: product.id });
+  });
   let adding = $state(false);
   
   async function handleAddToCart() {

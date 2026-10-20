@@ -11,7 +11,8 @@
     { name: 'Sản phẩm', path: '/admin/products', icon: icons.box },
     { name: 'Danh mục', path: '/admin/categories', icon: icons.tag || icons.box },
     { name: 'Đơn hàng', path: '/admin/orders', icon: icons.cart },
-    { name: 'Khách hàng', path: '/admin/customers', icon: icons.users }
+    { name: 'Khách hàng', path: '/admin/customers', icon: icons.users },
+    { name: 'Thống kê truy cập', path: '/admin/analytics', icon: icons.barChart }
   ];
 
   function toggle() {

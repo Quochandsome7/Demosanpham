@@ -1,5 +1,6 @@
 <script lang="ts">
   import { icons } from '../../icons';
+  import { analyticsOptOut, setAnalyticsOptOut } from '../../analytics';
 </script>
 
 <footer class="bg-dark-950 border-t border-dark-800 pt-16 pb-8 relative overflow-hidden">
@@ -72,6 +73,18 @@
       
     </div>
     
+    <div class="border-t border-dark-800 pt-6 mt-8 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-dark-500">
+      <p class="text-center md:text-left">
+        Website ghi nhận trang bạn xem, loại thiết bị, trình duyệt, nguồn truy cập, IP và vị trí gần đúng (quốc gia, thành phố) để thống kê. Không lưu mật khẩu; dữ liệu được tự xóa sau 30 ngày.
+      </p>
+      <button
+        onclick={() => setAnalyticsOptOut(!$analyticsOptOut)}
+        class="shrink-0 px-3 py-1.5 rounded-lg border border-dark-700 hover:border-cyber-500 hover:text-cyber-400 transition-colors"
+      >
+        {$analyticsOptOut ? 'Bật lại thống kê' : 'Tắt thống kê'}
+      </button>
+    </div>
+
     <div class="border-t border-dark-800 pt-8 mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
       <p class="text-dark-500 text-sm text-center md:text-left">
         © 2026 Cellphone X — Made with <span class="text-red-500">❤️</span> by Quốc Jee. All rights reserved.

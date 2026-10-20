@@ -163,6 +163,10 @@ export const api = {
       body: JSON.stringify({ message }),
     }),
 
+  // Analytics (admin)
+  getAnalyticsStats: (hours: number = 24) =>
+    request<any>(`/analytics/stats?hours=${hours}`),
+
   // Wishlist
   getWishlist: () => request<any>("/wishlist"),
   addToWishlist: (product_id: number) =>

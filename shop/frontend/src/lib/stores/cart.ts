@@ -1,3 +1,4 @@
+import { trackShop } from "../analytics";
 import { writable, derived } from "svelte/store";
 import { api } from "../api";
 
@@ -71,6 +72,7 @@ function createCartStore() {
       update((s) => ({ ...s, loading: true, error: null }));
       try {
         await api.addToCart(product_id, quantity);
+        trackShop("add_to_cart", { product_id });
         const res = await api.getCart();
         const rawItems = res.data || [];
         const items = rawItems.map(normalizeItem);
