@@ -22,7 +22,6 @@ Website thương mại điện tử bán điện thoại, laptop, tablet, phụ 
 7. [Tài liệu chi tiết](#7-tài-liệu-chi-tiết)
 8. [Xử lý lỗi thường gặp](#8-xử-lý-lỗi-thường-gặp)
 9. [Hạn chế đã biết](#9-hạn-chế-đã-biết)
-10. [Thành viên](#10-thành-viên)
 
 ---
 
@@ -225,13 +224,5 @@ Xem thêm trong [deployment.md](shop/docs/deployment.md#xử-lý-lỗi-thường
 - Ảnh sản phẩm là đường dẫn ngoài, chưa lưu trên R2; chưa có tên miền riêng và chưa kiểm thử tải.
 
 ---
-
-## 10. Thành viên
-
-| Thành viên | Vai trò |
-|---|---|
-| Nguyễn Anh Quốc | Nhóm trưởng – Backend & DevOps: thiết kế hệ thống, D1, API Hono, chatbot RAG, triển khai |
-| Đỗ Thị Thùy Dung | Frontend khách hàng: trang chủ, sản phẩm, giỏ hàng, thanh toán, chatbot, responsive |
-| Nguyễn Thành Điềm | Frontend quản trị & Kiểm thử: trang quản trị, thống kê truy cập, kiểm thử |
 
 📍 Cửa hàng mẫu: TP. Thái Nguyên · ☎ 0969610085
