@@ -1,0 +1,4 @@
+# Biến môi trường khi chạy `npm run dev` ở máy (wrangler dev đọc file .dev.vars, ghi đè [vars] trong wrangler.toml).
+# Sao chép thành .dev.vars rồi điền giá trị. KHÔNG commit .dev.vars.
+JWT_SECRET=doi-thanh-chuoi-ngau-nhien-dai
+FRONTEND_URL=http://localhost:5173

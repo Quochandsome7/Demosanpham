@@ -141,3 +141,29 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Cloudflare Wrangler: dữ liệu D1 cục bộ, bản build tạm, biến môi trường cục bộ
+.wrangler/
+.dev.vars
+
+
+# ── Chỉ lưu trên máy, không đưa lên GitHub ──
+# Báo cáo Word, slide trình chiếu và nguồn dựng báo cáo
+*.docx
+*.pptx
+shop/docs/bao_cao_ictu/
+shop/docs/formmaubaocao/
+shop/docs/generate_luutrinh.py
+# Tệp làm việc với Claude Code
+CLAUDE.md
+.claude/
+shop/docs/skills/
+shop/analytics-dashboard/fromt

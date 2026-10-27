@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "cd backend && npm run dev",
     "dev:web": "cd frontend && npm run dev",
+    "db:migrate:local": "cd backend && npm run db:migrate:local",
+    "db:seed:local": "cd backend && npm run db:seed:local",
+    "db:migrate:remote": "cd backend && npm run db:migrate:remote",
+    "db:seed:remote": "cd backend && npm run db:seed:remote",
+    "build:web": "cd frontend && npm run build",
     "deploy:api": "cd backend && npm run deploy",
-    "deploy:web": "cd frontend && npm run build",
-    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+    "deploy:web": "cd frontend && npm run build && npx wrangler pages deploy build --project-name demosanpham",
+    "deploy": "npm run deploy:api && npm run deploy:web"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
