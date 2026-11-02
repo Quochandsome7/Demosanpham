@@ -71,14 +71,14 @@
   let groups = $derived(
     stats
       ? [
-          { title: 'Quốc gia', rows: stats.byCountry, label: countryName },
-          { title: 'Thành phố', rows: stats.byCity, label: (k: string) => k },
-          { title: 'Thiết bị', rows: stats.byDevice, label: (k: string) => k },
-          { title: 'Hệ điều hành', rows: stats.byOs, label: (k: string) => k },
-          { title: 'Trình duyệt', rows: stats.byBrowser, label: (k: string) => k },
-          { title: 'Nguồn truy cập', rows: stats.byReferrer, label: (k: string) => k },
-          { title: 'Trang được xem nhiều', rows: stats.topPages, label: (k: string) => k },
-          { title: 'Sản phẩm được xem nhiều', rows: stats.topProducts, label: (k: string) => k }
+          { title: 'Quốc gia', rows: stats.byCountry, label: countryName, color: 'bg-sky-500' },
+          { title: 'Thành phố', rows: stats.byCity, label: (k: string) => k, color: 'bg-violet-500' },
+          { title: 'Thiết bị', rows: stats.byDevice, label: (k: string) => k, color: 'bg-emerald-500' },
+          { title: 'Hệ điều hành', rows: stats.byOs, label: (k: string) => k, color: 'bg-amber-500' },
+          { title: 'Trình duyệt', rows: stats.byBrowser, label: (k: string) => k, color: 'bg-rose-500' },
+          { title: 'Nguồn truy cập', rows: stats.byReferrer, label: (k: string) => k, color: 'bg-indigo-400' },
+          { title: 'Trang được xem nhiều', rows: stats.topPages, label: (k: string) => k, color: 'bg-teal-400' },
+          { title: 'Sản phẩm được xem nhiều', rows: stats.topProducts, label: (k: string) => k, color: 'bg-orange-500' }
         ]
       : []
   );
@@ -136,7 +136,7 @@
         <div class="flex items-end gap-1 h-32">
           {#each stats.byHour as h}
             <div
-              class="flex-1 min-w-[2px] rounded-t bg-cyan-500/70 hover:bg-cyan-400"
+              class="flex-1 min-w-[2px] rounded-t bg-gradient-to-t from-violet-600 to-fuchsia-400 opacity-80 hover:opacity-100 transition-opacity"
               style="height: {(h.count / max(stats.byHour)) * 100}%"
               title="{h.key}: {h.count} người"
             ></div>
@@ -148,7 +148,9 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {#each groups as group}
         <div class="rounded-2xl border border-dark-700 bg-dark-900 p-6">
-          <h3 class="text-sm font-medium text-gray-400 mb-4">{group.title}</h3>
+          <h3 class="flex items-center gap-2 text-sm font-medium text-gray-400 mb-4">
+            <span class="h-2.5 w-2.5 rounded-full {group.color}"></span>{group.title}
+          </h3>
           {#if group.rows.length === 0}
             <p class="text-sm text-gray-500">Chưa có dữ liệu</p>
           {:else}
@@ -160,7 +162,7 @@
                     <span class="text-gray-400 shrink-0">{row.count}</span>
                   </div>
                   <div class="h-2 rounded-full bg-dark-800">
-                    <div class="h-2 rounded-full bg-cyan-500" style="width: {(row.count / max(group.rows)) * 100}%"></div>
+                    <div class="h-2 rounded-full {group.color}" style="width: {(row.count / max(group.rows)) * 100}%"></div>
                   </div>
                 </li>
               {/each}
