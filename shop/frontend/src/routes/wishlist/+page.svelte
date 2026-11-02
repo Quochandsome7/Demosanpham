@@ -66,7 +66,7 @@
             <img 
               src={item.image_url || '/placeholder.png'} 
               alt={item.name}
-              class="absolute inset-4 w-[calc(100%-2rem)] h-[calc(100%-2rem)] object-contain group-hover:scale-105 transition-transform duration-300"
+              class="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
             />
           </a>
