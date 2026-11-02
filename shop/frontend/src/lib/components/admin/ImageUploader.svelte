@@ -11,9 +11,14 @@
   let loading = $state(false);
   let error = $state('');
 
+  // Chỉ đồng bộ khi ảnh từ bên ngoài thay đổi (vd. vừa tải xong sản phẩm),
+  // không theo dõi inputUrl — nếu không, ô nhập sẽ bị xóa ngay khi người dùng dán link
+  let lastCurrentImage = currentImage;
   $effect(() => {
-    if (currentImage !== inputUrl && !loading) {
+    if (currentImage !== lastCurrentImage) {
+      lastCurrentImage = currentImage;
       inputUrl = currentImage || '';
+      error = '';
     }
   });
 
@@ -54,7 +59,8 @@
       <input
         type="text"
         bind:value={inputUrl}
-        placeholder="Paste link from Unsplash, Google Photos, or any image URL"
+        oninput={() => (error = '')}
+        placeholder="Dán link ảnh trực tiếp (.jpg, .png, .webp...)"
         class="w-full px-4 py-2 bg-dark-800 border {error ? 'border-red-500' : 'border-dark-700'} rounded-xl text-white outline-none focus:border-cyan-500 transition-colors"
       />
       {#if error}
@@ -87,7 +93,8 @@
           src={inputUrl || currentImage}
           alt="Preview"
           class="max-w-full max-h-full object-contain"
-          onerror={() => error = 'Không thể tải hình ảnh từ đường dẫn này'}
+          onload={() => { if (inputUrl && inputUrl !== currentImage) onUpload(inputUrl); }}
+          onerror={() => error = 'Không thể tải hình ảnh từ đường dẫn này — hãy dùng link trực tiếp tới file ảnh'}
         />
       {:else}
         <div class="text-gray-500 flex flex-col items-center">

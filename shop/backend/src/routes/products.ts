@@ -1,24 +1,41 @@
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Env } from '../types';
 import { authMiddleware } from '../middleware/auth';
+import { verifyJWT } from '../utils';
 import { indexProduct, deleteProductIndex } from '../lib/rag';
 
 const products = new Hono<{ Bindings: Env }>();
+
+const MAX_LIMIT = 100;
+
+// Chỉ admin (có JWT hợp lệ) mới được xem cả sản phẩm đã ngừng bán
+async function canSeeInactive(c: Context<{ Bindings: Env }>): Promise<boolean> {
+  if (c.req.query('include_inactive') !== '1') return false;
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  try {
+    await verifyJWT(authHeader.split(' ')[1], c.env.JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ─── GET / — Lấy danh sách sản phẩm ────────────────────────────────────────
 
 products.get('/', async (c) => {
   const categoryId = c.req.query('category_id');
   const q = c.req.query('q');
-  const page = parseInt(c.req.query('page') || '1');
-  const limit = parseInt(c.req.query('limit') || '12');
+  const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1);
+  const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(c.req.query('limit') || '12') || 12));
   const offset = (page - 1) * limit;
+  const activeFilter = (await canSeeInactive(c)) ? '1 = 1' : 'p.is_active = 1';
 
   let query = `
     SELECT p.*, c.name as category_name, c.slug as category_slug 
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
-    WHERE p.is_active = 1
+    WHERE ${activeFilter}
   `;
   const params: any[] = [];
 
@@ -32,13 +49,13 @@ products.get('/', async (c) => {
     params.push(`%${q}%`);
   }
 
-  query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+  query += ` ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const { results } = await c.env.DB.prepare(query).bind(...params).all();
 
   // Count total
-  let countQuery = `SELECT COUNT(*) as total FROM products WHERE is_active = 1`;
+  let countQuery = `SELECT COUNT(*) as total FROM products p WHERE ${activeFilter}`;
   const countParams: any[] = [];
   if (categoryId) {
     countQuery += ` AND category_id = ?`;
@@ -72,7 +89,7 @@ products.get('/:id', async (c) => {
     SELECT p.*, c.name as category_name, c.slug as category_slug 
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
-    WHERE p.id = ? AND p.is_active = 1
+    WHERE p.id = ? ${(await canSeeInactive(c)) ? '' : 'AND p.is_active = 1'}
   `;
   const product = await c.env.DB.prepare(query).bind(id).first<any>();
 
@@ -90,18 +107,18 @@ products.get('/:id', async (c) => {
 
 products.post('/', authMiddleware, async (c) => {
   const body = await c.req.json();
-  const { name, price, original_price, image_url, description, category_id, badge, chip, specs, stock } = body;
+  const { name, price, original_price, image_url, description, category_id, badge, chip, specs, stock, is_active } = body;
 
   const specsStr = specs ? JSON.stringify(specs) : null;
 
   const result = await c.env.DB.prepare(`
-    INSERT INTO products (name, price, original_price, image_url, description, category_id, badge, chip, specs, stock)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (name, price, original_price, image_url, description, category_id, badge, chip, specs, stock, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
-  `).bind(name, price, original_price, image_url, description, category_id, badge, chip, specsStr, stock || 100).first<any>();
+  `).bind(name, price, original_price ?? null, image_url ?? null, description ?? null, category_id ?? null, badge ?? null, chip ?? null, specsStr, stock ?? 100, is_active === undefined ? 1 : (is_active ? 1 : 0)).first<any>();
 
-  // Hook: index vào Vectorize (bất đồng bộ, không fail CRUD nếu lỗi)
-  if (result) {
+  // Hook: index vào Vectorize (bất đồng bộ, không fail CRUD nếu lỗi) — chỉ khi đang bán
+  if (result && result.is_active) {
     // Lấy category_name để build text tốt hơn
     let categoryName = '';
     if (category_id) {

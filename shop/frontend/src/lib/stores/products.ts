@@ -75,8 +75,18 @@ function createProductsStore() {
     loadProducts: async (params?: Record<string, string>) => {
       update((s) => ({ ...s, loading: true, error: null }));
       try {
-        const res = await api.getProducts(params);
-        update((s) => ({ ...s, products: res.data || [], loading: false }));
+        // Bộ lọc/tìm kiếm/sắp xếp chạy phía client nên cần tải đủ mọi trang
+        // (API giới hạn tối đa 100 sản phẩm mỗi lần gọi)
+        const all: Product[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const res = await api.getProducts({ ...params, limit: "100", page: String(page) });
+          all.push(...(res.data || []));
+          totalPages = res.meta?.totalPages ?? 1;
+          page++;
+        } while (page <= totalPages);
+        update((s) => ({ ...s, products: all, loading: false }));
       } catch (err: any) {
         update((s) => ({ ...s, error: err.message, loading: false }));
       }

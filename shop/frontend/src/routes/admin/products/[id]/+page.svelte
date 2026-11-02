@@ -33,10 +33,20 @@
       categories = catsRes.data || [];
 
       if (!isNew && id) {
-        const prodRes = await api.getProduct(id);
+        const prodRes = await api.getProductAdmin(id);
         const data = prodRes.data;
+        // API trả về snake_case → map sang tên trường của form
         formData = {
-          ...data,
+          name: data.name ?? '',
+          price: data.price ?? 0,
+          originalPrice: data.original_price ?? 0,
+          categoryId: data.category_id ?? '',
+          image: data.image_url ?? '',
+          description: data.description ?? '',
+          stock: data.stock ?? 0,
+          isActive: Boolean(data.is_active),
+          badge: data.badge ?? '',
+          chip: data.chip ?? '',
           specs: Array.isArray(data.specs) ? data.specs.join(', ') : (data.specs || '')
         };
       }
@@ -51,8 +61,18 @@
   async function handleSave() {
     saving = true;
     try {
+      // Backend nhận snake_case
       const payload = {
-        ...formData,
+        name: formData.name,
+        price: Number(formData.price),
+        original_price: formData.originalPrice ? Number(formData.originalPrice) : null,
+        category_id: formData.categoryId ? Number(formData.categoryId) : null,
+        image_url: formData.image || null,
+        description: formData.description,
+        stock: Number(formData.stock),
+        is_active: formData.isActive ? 1 : 0,
+        badge: formData.badge || null,
+        chip: formData.chip || null,
         specs: formData.specs.split(',').map(s => s.trim()).filter(s => s)
       };
 

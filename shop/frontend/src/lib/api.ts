@@ -48,6 +48,9 @@ export const api = {
     return request<any>(`/products${qs}`);
   },
   getProduct: (id: number) => request<any>(`/products/${id}`),
+  // Admin: lấy cả sản phẩm đã ngừng bán (cần token admin)
+  getProductAdmin: (id: number | string) =>
+    request<any>(`/products/${id}?include_inactive=1`),
   createProduct: (data: any) =>
     request<any>("/products", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: number, data: any) =>

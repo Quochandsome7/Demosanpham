@@ -227,7 +227,7 @@ chat.post('/', async (c) => {
       const { results } = await c.env.DB.prepare(
         `SELECT p.name, p.price, p.stock, c.name as category_name
          FROM products p LEFT JOIN categories c ON p.category_id = c.id
-         WHERE p.is_active = 1 ORDER BY c.name, p.name LIMIT 20`
+         WHERE p.is_active = 1 ORDER BY c.name, p.name LIMIT 50`
       ).all<any>();
 
       if (!results.length) {

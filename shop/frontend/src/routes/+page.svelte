@@ -9,6 +9,9 @@
   let maxPrice = $state<number | null>(null);
   let sortBy = $state('default');
 
+  const PAGE_SIZE = 12;
+  let visibleCount = $state(PAGE_SIZE);
+
   onMount(() => {
     productsStore.loadCategories();
     productsStore.loadProducts();
@@ -52,6 +55,15 @@
 
     return list;
   });
+
+  // Đổi bộ lọc/sắp xếp → quay về trang đầu
+  $effect(() => {
+    $searchQuery; $productsStore.selectedCategory; minPrice; maxPrice; sortBy;
+    visibleCount = PAGE_SIZE;
+  });
+
+  let visibleProducts = $derived(displayedProducts.slice(0, visibleCount));
+  let remainingCount = $derived(Math.max(0, displayedProducts.length - visibleCount));
 </script>
 
 <HeroSection />
@@ -228,9 +240,24 @@
     </div>
   {:else}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
-      {#each displayedProducts as product}
+      {#each visibleProducts as product (product.id)}
         <ProductCard {product} />
       {/each}
+    </div>
+
+    <div class="flex flex-col items-center gap-3 mt-10">
+      <p class="text-dark-400 text-xs sm:text-sm">
+        Đang hiển thị <strong class="text-white">{visibleProducts.length}</strong> / {displayedProducts.length} sản phẩm
+      </p>
+      {#if remainingCount > 0}
+        <button
+          type="button"
+          onclick={() => (visibleCount += PAGE_SIZE)}
+          class="px-6 py-2.5 bg-dark-900 hover:bg-dark-800 border border-cyber-500/40 hover:border-cyber-500 text-cyber-300 hover:text-white rounded-xl text-sm font-semibold transition-all cursor-pointer"
+        >
+          Xem thêm {Math.min(PAGE_SIZE, remainingCount)} sản phẩm
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

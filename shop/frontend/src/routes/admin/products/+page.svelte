@@ -9,6 +9,11 @@
   let products = $state([]);
   let loading = $state(true);
   let searchQuery = $state('');
+
+  const PAGE_SIZE = 10;
+  let currentPage = $state(1);
+  let totalPages = $state(1);
+  let totalItems = $state(0);
   
   // Delete modal state
   let showDeleteModal = $state(false);
@@ -17,8 +22,20 @@
   async function fetchProducts() {
     loading = true;
     try {
-      const res = await api.getProducts({ search: searchQuery });
+      const res = await api.getProducts({
+        q: searchQuery.trim(),
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+        include_inactive: '1'
+      });
       products = res.data || [];
+      totalPages = Math.max(1, res.meta?.totalPages ?? 1);
+      totalItems = res.meta?.total ?? products.length;
+      // Trang hiện tại trống (vd. vừa xóa sản phẩm cuối trang) → lùi một trang
+      if (products.length === 0 && currentPage > 1) {
+        currentPage = Math.min(currentPage - 1, totalPages);
+        return fetchProducts();
+      }
     } catch (error) {
       console.error(error);
       addToast('Lỗi khi tải danh sách sản phẩm', 'error');
@@ -33,8 +50,28 @@
 
   function handleSearch(e: Event) {
     e.preventDefault();
+    currentPage = 1;
     fetchProducts();
   }
+
+  function goToPage(p: number) {
+    if (p < 1 || p > totalPages || p === currentPage) return;
+    currentPage = p;
+    fetchProducts();
+  }
+
+  // Dãy số trang dạng 1 … 4 5 6 … 10
+  let pageNumbers = $derived.by(() => {
+    const pages: (number | '…')[] = [];
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1) {
+        pages.push(p);
+      } else if (pages[pages.length - 1] !== '…') {
+        pages.push('…');
+      }
+    }
+    return pages;
+  });
 
   function confirmDelete(product: any) {
     productToDelete = product;
@@ -58,9 +95,9 @@
 
   const columns = [
     { 
-      key: 'image', 
+      key: 'image_url', 
       label: 'Hình ảnh',
-      render: (row: any) => `<img src="${row.image || '/placeholder.png'}" alt="${row.name}" class="w-12 h-12 object-cover rounded-lg bg-dark-800" />`
+      render: (row: any) => `<img src="${row.image_url || '/placeholder.png'}" alt="${row.name}" class="w-12 h-12 object-cover rounded-lg bg-dark-800" />`
     },
     { 
       key: 'name', 
@@ -72,12 +109,12 @@
       label: 'Giá bán',
       render: (row: any) => `<div class="text-cyan-400 font-medium">${formatPrice(row.price)}</div>`
     },
-    { key: 'categoryName', label: 'Danh mục' },
+    { key: 'category_name', label: 'Danh mục' },
     { key: 'stock', label: 'Tồn kho' },
     { 
-      key: 'isActive', 
+      key: 'is_active', 
       label: 'Trạng thái',
-      render: (row: any) => row.isActive 
+      render: (row: any) => row.is_active 
         ? `<span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Đang bán</span>` 
         : `<span class="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Ngừng bán</span>`
     },
@@ -136,6 +173,44 @@
   {loading} 
   onRowClick={(row) => goto(`/admin/products/${row.id}`)}
 />
+
+{#if !loading && totalItems > 0}
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm">
+    <p class="text-gray-400">
+      Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} / {totalItems} sản phẩm
+    </p>
+    {#if totalPages > 1}
+      <nav class="flex items-center gap-1" aria-label="Phân trang">
+        <button
+          onclick={() => goToPage(currentPage - 1)}
+          disabled={currentPage === 1}
+          class="px-3 py-1.5 rounded-lg bg-dark-800 text-gray-300 hover:bg-dark-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          ‹ Trước
+        </button>
+        {#each pageNumbers as p}
+          {#if p === '…'}
+            <span class="px-2 text-gray-500">…</span>
+          {:else}
+            <button
+              onclick={() => goToPage(p)}
+              class="min-w-9 px-3 py-1.5 rounded-lg transition-colors {p === currentPage ? 'bg-cyan-500 text-white font-semibold' : 'bg-dark-800 text-gray-300 hover:bg-dark-700'}"
+            >
+              {p}
+            </button>
+          {/if}
+        {/each}
+        <button
+          onclick={() => goToPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          class="px-3 py-1.5 rounded-lg bg-dark-800 text-gray-300 hover:bg-dark-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Sau ›
+        </button>
+      </nav>
+    {/if}
+  </div>
+{/if}
 
 {#if showDeleteModal}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
