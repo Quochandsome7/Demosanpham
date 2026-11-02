@@ -75,7 +75,11 @@
 
   <div class="p-4 border-t border-dark-800">
     <button
-      onclick={() => { auth.logout(); goto('/admin/login'); }}
+      onclick={async () => {
+        // Về trang chủ trước rồi mới xóa phiên: nếu xóa trước, layout admin sẽ tự chuyển sang /admin/login
+        await goto('/');
+        auth.logout();
+      }}
       class="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors duration-200"
     >
       <span class="w-5 h-5 flex-shrink-0">
