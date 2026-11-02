@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
-  import { formatDate } from '$lib/utils';
+  import { formatDate, escapeHtml } from '$lib/utils';
   import DataTable from '$lib/components/admin/DataTable.svelte';
 
   let customers = $state([]);
@@ -36,20 +36,20 @@
       render: (row: any) => `
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs">
-            ${row.name ? row.name.charAt(0).toUpperCase() : '?'}
+            ${row.name ? escapeHtml(row.name.charAt(0).toUpperCase()) : '?'}
           </div>
-          <div class="font-medium text-gray-200">${row.name || 'Khách vãng lai'}</div>
+          <div class="font-medium text-gray-200">${escapeHtml(row.name || 'Khách vãng lai')}</div>
         </div>
       `
     },
     { key: 'phone', label: 'Số điện thoại', class: 'font-mono text-gray-300' },
     { key: 'email', label: 'Email', class: 'text-gray-400' },
     { 
-      key: 'orderCount', 
+      key: 'order_count', 
       label: 'Số đơn hàng',
-      render: (row: any) => `<span class="px-2.5 py-1 text-xs font-medium rounded-full bg-dark-700 text-white">${row.orderCount || 0} đơn</span>`
+      render: (row: any) => `<span class="px-2.5 py-1 text-xs font-medium rounded-full bg-dark-700 text-white">${row.order_count || 0} đơn</span>`
     },
-    { key: 'createdAt', label: 'Ngày đăng ký', render: (row: any) => formatDate(row.createdAt) }
+    { key: 'created_at', label: 'Ngày đăng ký', render: (row: any) => formatDate(row.created_at) }
   ];
 </script>
 

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api';
-  import { formatPrice, formatDate, getStatusColor, getStatusLabel } from '$lib/utils';
+  import { formatPrice, formatDate, getStatusColor, getStatusLabel, escapeHtml } from '$lib/utils';
   import DataTable from '$lib/components/admin/DataTable.svelte';
 
   let orders = $state([]);
@@ -37,15 +37,15 @@
       label: 'Khách hàng',
       render: (row: any) => `
         <div>
-          <div class="font-medium text-gray-200">${row.customerName}</div>
-          <div class="text-xs text-gray-500">${row.phone}</div>
+          <div class="font-medium text-gray-200">${escapeHtml(row.customer_name || 'Khách vãng lai')}</div>
+          <div class="text-xs text-gray-500">${escapeHtml(row.phone || '')}</div>
         </div>
       `
     },
     { 
-      key: 'totalAmount', 
+      key: 'total', 
       label: 'Tổng tiền',
-      render: (row: any) => `<div class="text-cyan-400 font-medium">${formatPrice(row.totalAmount)}</div>`
+      render: (row: any) => `<div class="text-cyan-400 font-medium">${formatPrice(row.total || 0)}</div>`
     },
     { 
       key: 'status', 
@@ -53,9 +53,9 @@
       render: (row: any) => `<span class="px-2.5 py-1 text-xs font-medium rounded-full bg-${getStatusColor(row.status)}-500/20 text-${getStatusColor(row.status)}-400 border border-${getStatusColor(row.status)}-500/30">${getStatusLabel(row.status)}</span>`
     },
     { 
-      key: 'createdAt', 
+      key: 'created_at', 
       label: 'Ngày tạo',
-      render: (row: any) => formatDate(row.createdAt)
+      render: (row: any) => formatDate(row.created_at)
     }
   ];
 </script>

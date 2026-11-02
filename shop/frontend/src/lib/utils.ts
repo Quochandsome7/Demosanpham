@@ -42,3 +42,10 @@ export function getStatusLabel(status: string): string {
   };
   return labels[status] || status;
 }
+
+// Chống chèn mã HTML khi hiển thị dữ liệu người dùng nhập qua {@html} (vd. cột bảng DataTable)
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] as string
+  );
+}

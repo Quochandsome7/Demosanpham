@@ -64,7 +64,7 @@
               {getStatusLabel(order.status)}
             </span>
           </h2>
-          <p class="text-sm text-gray-400 mt-1">Đặt lúc: {formatDate(order.createdAt)}</p>
+          <p class="text-sm text-gray-400 mt-1">Đặt lúc: {formatDate(order.created_at)}</p>
         </div>
       </div>
       
@@ -93,9 +93,9 @@
           <div class="divide-y divide-dark-800 p-4 space-y-4">
             {#each order.items || [] as item}
               <div class="flex items-center gap-4 pt-4 first:pt-0">
-                <img src={item.productImage || '/placeholder.png'} alt={item.productName} class="w-16 h-16 rounded-xl object-cover bg-dark-800" />
+                <img src={item.image_url || '/placeholder.png'} alt={item.product_name} class="w-16 h-16 rounded-xl object-cover bg-dark-800" />
                 <div class="flex-1 min-w-0">
-                  <h4 class="text-white font-medium truncate">{item.productName}</h4>
+                  <h4 class="text-white font-medium truncate">{item.product_name || `Sản phẩm #${item.product_id}`}</h4>
                   <div class="text-sm text-gray-400 mt-1">{formatPrice(item.price)} x {item.quantity}</div>
                 </div>
                 <div class="text-right">
@@ -106,7 +106,7 @@
           </div>
           <div class="p-4 border-t border-dark-800 bg-dark-800/30 flex justify-between items-center">
             <span class="text-gray-400 font-medium">Tổng tiền</span>
-            <span class="text-xl font-bold text-cyan-400">{formatPrice(order.totalAmount)}</span>
+            <span class="text-xl font-bold text-cyan-400">{formatPrice(order.total || 0)}</span>
           </div>
         </div>
         
@@ -127,7 +127,7 @@
           <div class="p-4 space-y-4 text-sm">
             <div>
               <div class="text-gray-500 mb-1">Họ tên</div>
-              <div class="text-white font-medium">{order.customerName}</div>
+              <div class="text-white font-medium">{order.customer_name || 'Khách vãng lai'}</div>
             </div>
             <div>
               <div class="text-gray-500 mb-1">Số điện thoại</div>
@@ -135,11 +135,11 @@
             </div>
             <div>
               <div class="text-gray-500 mb-1">Email</div>
-              <div class="text-white font-medium">{order.email || 'Không có'}</div>
+              <div class="text-white font-medium">{order.customer_email || 'Không có'}</div>
             </div>
             <div>
               <div class="text-gray-500 mb-1">Địa chỉ giao hàng</div>
-              <div class="text-white font-medium leading-relaxed">{order.address}</div>
+              <div class="text-white font-medium leading-relaxed">{order.shipping_address || 'Không có'}</div>
             </div>
           </div>
         </div>
